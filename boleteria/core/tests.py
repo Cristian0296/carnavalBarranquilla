@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+﻿from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 import tempfile
@@ -14,6 +14,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from .models import (
     Event,
     EventImage,
+    EventTicketType,
     Notification,
     Order,
     Profile,
@@ -225,16 +226,34 @@ class EventViewsTests(TestCase):
         response = self.client.get(reverse("event_list"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Evento Activo")
-        self.assertContains(response, "USD 2,50 por participacion")
+        self.assertContains(response, "USD 2,50 por entrada QR")
         self.assertNotContains(response, "Evento Programado")
         self.assertNotContains(response, "Evento Activo Finalizado")
         self.assertNotContains(response, "Evento Inactivo")
+
+    def test_event_list_highlights_vip_availability(self):
+        EventTicketType.objects.create(
+            event=self.active_event,
+            code=EventTicketType.Code.VIP,
+            name="VIP",
+            price_usd=Decimal("5.00"),
+            stock_total=20,
+            is_active=True,
+            display_order=2,
+            number_prefix="VIP",
+        )
+
+        response = self.client.get(reverse("event_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "VIP disponible")
+        self.assertContains(response, "Desde USD 2,50 en entradas QR")
 
     def test_event_detail_for_active_event(self):
         response = self.client.get(reverse("event_detail", args=[self.active_event.pk]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Evento Activo")
-        self.assertContains(response, "USD 2,50")
+        self.assertContains(response, "Debes iniciar sesión para comprar.")
 
     def test_event_detail_displays_raffle_range_with_dynamic_width(self):
         self.active_event.ticket_limit = 100
@@ -243,15 +262,40 @@ class EventViewsTests(TestCase):
         response = self.client.get(reverse("event_detail", args=[self.active_event.pk]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "000 a 100")
+        self.assertContains(response, "Total de entradas QR para la venta:")
+        self.assertContains(response, "100")
+
+    def test_event_detail_shows_general_and_vip_cards_when_vip_is_active(self):
+        EventTicketType.objects.create(
+            event=self.active_event,
+            code=EventTicketType.Code.VIP,
+            name="VIP",
+            price_usd=Decimal("5.00"),
+            stock_total=20,
+            is_active=True,
+            display_order=2,
+            number_prefix="VIP",
+        )
+
+        user = User.objects.create_user(username="buyer_cards", password="StrongPass123!")
+        self.client.login(username="buyer_cards", password="StrongPass123!")
+        response = self.client.get(reverse("event_detail", args=[self.active_event.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Entrada General")
+        self.assertContains(response, "Entrada VIP")
+        self.assertContains(response, 'name="ticket_type" value="general"')
+        self.assertContains(response, 'name="ticket_type" value="vip"')
 
     def test_event_detail_returns_404_for_inactive_event(self):
         response = self.client.get(reverse("event_detail", args=[self.inactive_event.pk]))
         self.assertEqual(response.status_code, 404)
 
-    def test_event_detail_returns_404_for_scheduled_active_event(self):
+    def test_event_detail_allows_viewing_scheduled_active_event(self):
         response = self.client.get(reverse("event_detail", args=[self.scheduled_active_event.pk]))
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Evento Programado")
+        self.assertContains(response, "Debes iniciar sesión para comprar.")
 
     def test_purchase_requires_authentication(self):
         response = self.client.post(reverse("purchase_event", args=[self.active_event.pk]))
@@ -263,7 +307,7 @@ class EventViewsTests(TestCase):
         self.client.login(username="buyer_scheduled", password="StrongPass123!")
         response = self.client.post(reverse("purchase_event", args=[self.scheduled_active_event.pk]))
         self.assertEqual(response.status_code, 400)
-        self.assertIn("aun no inicia", response.content.decode("utf-8"))
+        self.assertIn("Este evento aun no ha comenzado.", response.content.decode("utf-8"))
 
     def test_purchase_creates_paid_order_and_unused_ticket(self):
         user = User.objects.create_user(username="buyer1", password="StrongPass123!")
@@ -279,11 +323,15 @@ class EventViewsTests(TestCase):
         self.assertEqual(order.quantity, 1)
         self.assertEqual(order.unit_price_usd, Decimal("2.50"))
         self.assertEqual(order.total_usd, Decimal("2.50"))
+        self.assertIsNotNone(order.ticket_type)
+        self.assertEqual(order.ticket_type.code, EventTicketType.Code.GENERAL)
         self.assertEqual(ticket.status, Ticket.Status.UNUSED)
+        self.assertEqual(ticket.ticket_type, order.ticket_type)
+        self.assertTrue(ticket.raffle_number_display.startswith("G-"))
         self.assertTrue(ticket.token_ref)
         self.assertEqual(len(ticket.token_ref.split(".")), 2)
         self.assertContains(response, str(ticket.ticket_uuid))
-        self.assertContains(response, "Cantidad de participaciones: 1")
+        self.assertContains(response, "Numero de entradas QR: 1")
         self.assertContains(response, "Total pagado (USD): 2,50")
 
     def test_purchase_multiple_tickets_in_single_order(self):
@@ -302,9 +350,42 @@ class EventViewsTests(TestCase):
         self.assertEqual(order.quantity, 3)
         self.assertEqual(order.unit_price_usd, Decimal("2.50"))
         self.assertEqual(order.total_usd, Decimal("7.50"))
-        self.assertContains(response, "Cantidad de participaciones: 3")
+        self.assertIsNotNone(order.ticket_type)
+        self.assertTrue(all(ticket.ticket_type_id == order.ticket_type_id for ticket in tickets))
+        self.assertContains(response, "Numero de entradas QR: 3")
         self.assertContains(response, "Total pagado (USD): 7,50")
         self.assertContains(response, "data:image/png;base64,")
+
+    def test_purchase_can_buy_vip_ticket_type(self):
+        EventTicketType.objects.create(
+            event=self.active_event,
+            code=EventTicketType.Code.VIP,
+            name="VIP",
+            price_usd=Decimal("5.00"),
+            stock_total=20,
+            is_active=True,
+            display_order=2,
+            number_prefix="VIP",
+        )
+        user = User.objects.create_user(username="buyer_vip", password="StrongPass123!")
+        self.client.login(username="buyer_vip", password="StrongPass123!")
+
+        response = self.client.post(
+            reverse("purchase_event", args=[self.active_event.pk]),
+            {"quantity": "2", "ticket_type": "vip"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        order = Order.objects.get(user=user, event=self.active_event)
+        tickets = Ticket.objects.filter(order=order)
+        self.assertEqual(order.ticket_type.code, EventTicketType.Code.VIP)
+        self.assertEqual(order.unit_price_usd, Decimal("5.00"))
+        self.assertEqual(order.total_usd, Decimal("10.00"))
+        self.assertEqual(tickets.count(), 2)
+        self.assertTrue(all(ticket.ticket_type_id == order.ticket_type_id for ticket in tickets))
+        self.assertEqual(tickets.order_by("raffle_number").first().raffle_number_display, "VIP-01")
+        self.assertContains(response, "Tipo de entrada:")
+        self.assertContains(response, "VIP")
 
     def test_purchase_rejects_when_exceeds_event_ticket_limit(self):
         user = User.objects.create_user(username="buyer_limit", password="StrongPass123!")
@@ -328,7 +409,7 @@ class EventViewsTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn("Solo quedan 1 participaciones disponibles", response.content.decode("utf-8"))
+        self.assertIn("No hay entradas QR disponibles para este evento.", response.content.decode("utf-8"))
 
     def test_user_can_buy_incrementally_for_same_event(self):
         user = User.objects.create_user(username="buyer_incremental", password="StrongPass123!")
@@ -546,7 +627,7 @@ class EventViewsTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "¿Estas seguro de enviar boleta a")
+        self.assertContains(response, "Â¿Estas seguro de enviar boleta a")
         self.assertContains(response, "Cristian")
         self.assertEqual(response.context["transfer_state"]["mode"], "confirm")
 
@@ -765,6 +846,59 @@ class EventViewsTests(TestCase):
         self.assertContains(response, "Cristian")
         self.assertEqual(response.context["transfer_state"]["mode"], "confirm")
 
+    def test_my_tickets_transfer_preview_shows_ticket_type_name(self):
+        owner = User.objects.create_user(
+            username="owner_transfer_preview_vip",
+            password="StrongPass123!",
+            email="owner_transfer_preview_vip@example.com",
+        )
+        recipient = User.objects.create_user(
+            username="recipient_transfer_preview_vip",
+            password="StrongPass123!",
+            email="recipient_transfer_preview_vip@example.com",
+        )
+        vip_type = EventTicketType.objects.create(
+            event=self.active_event,
+            code=EventTicketType.Code.VIP,
+            name="VIP",
+            price_usd=Decimal("5.00"),
+            stock_total=20,
+            is_active=True,
+            display_order=2,
+            number_prefix="VIP",
+        )
+        order = Order.objects.create(
+            user=owner,
+            event=self.active_event,
+            ticket_type=vip_type,
+            status=Order.Status.PAID,
+            unit_price_usd=Decimal("5.00"),
+            quantity=1,
+            total_usd=Decimal("5.00"),
+        )
+        ticket = Ticket.objects.create(
+            order=order,
+            event=self.active_event,
+            ticket_type=vip_type,
+            status=Ticket.Status.UNUSED,
+            token_ref="transfer.preview.vip.token",
+        )
+
+        self.client.login(username="owner_transfer_preview_vip", password="StrongPass123!")
+        response = self.client.post(
+            reverse("my_tickets"),
+            {
+                "action": "preview",
+                "ticket_id": str(ticket.pk),
+                "target_email": recipient.email,
+                "selected_event_id": str(self.active_event.pk),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "boleta VIP")
+        self.assertContains(response, ticket.raffle_number_display)
+
     def test_my_tickets_transfer_confirm_moves_ticket_to_recipient(self):
         owner = User.objects.create_user(
             username="owner_transfer_confirm_new",
@@ -832,6 +966,69 @@ class EventViewsTests(TestCase):
         self.assertEqual(order.total_usd, Decimal("2.50"))
         self.assertTrue(Notification.objects.filter(user=recipient, title="Boleta recibida").exists())
         self.assertContains(confirm, "fue transferida a Maria")
+
+    def test_transfer_notification_includes_ticket_type_name(self):
+        owner = User.objects.create_user(
+            username="owner_transfer_notify_vip",
+            password="StrongPass123!",
+            email="owner_transfer_notify_vip@example.com",
+        )
+        recipient = User.objects.create_user(
+            username="recipient_transfer_notify_vip",
+            password="StrongPass123!",
+            email="recipient_transfer_notify_vip@example.com",
+        )
+        vip_type = EventTicketType.objects.create(
+            event=self.active_event,
+            code=EventTicketType.Code.VIP,
+            name="VIP",
+            price_usd=Decimal("5.00"),
+            stock_total=20,
+            is_active=True,
+            display_order=2,
+            number_prefix="VIP",
+        )
+        order = Order.objects.create(
+            user=owner,
+            event=self.active_event,
+            ticket_type=vip_type,
+            status=Order.Status.PAID,
+            unit_price_usd=Decimal("5.00"),
+            quantity=1,
+            total_usd=Decimal("5.00"),
+        )
+        ticket = Ticket.objects.create(
+            order=order,
+            event=self.active_event,
+            ticket_type=vip_type,
+            status=Ticket.Status.UNUSED,
+            token_ref="transfer.notify.vip.token",
+        )
+
+        self.client.login(username="owner_transfer_notify_vip", password="StrongPass123!")
+        preview = self.client.post(
+            reverse("my_tickets"),
+            {
+                "action": "preview",
+                "ticket_id": str(ticket.pk),
+                "target_email": recipient.email,
+                "selected_event_id": str(self.active_event.pk),
+            },
+        )
+        transfer_token = preview.context["transfer_state"]["transfer_token"]
+        self.client.post(
+            reverse("my_tickets"),
+            {
+                "action": "confirm",
+                "ticket_id": str(ticket.pk),
+                "transfer_token": transfer_token,
+                "selected_event_id": str(self.active_event.pk),
+            },
+            follow=True,
+        )
+
+        notification = Notification.objects.get(user=recipient, title="Boleta recibida")
+        self.assertIn("boleta VIP", notification.body)
 
     def test_my_tickets_transfer_rejects_used_ticket(self):
         owner = User.objects.create_user(
@@ -917,6 +1114,26 @@ class EventViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Notificacion de prueba")
         self.assertEqual(Notification.objects.filter(user=user, is_read=False).count(), 0)
+
+    def test_notifications_list_shows_generic_detail_link(self):
+        user = User.objects.create_user(
+            username="notify_detail_user",
+            password="StrongPass123!",
+            email="notify_detail_user@example.com",
+        )
+        Notification.objects.create(
+            user=user,
+            title="Boleta recibida",
+            body="Recibiste la boleta VIP #VIP-01.",
+            link_url=reverse("my_tickets"),
+            is_read=False,
+        )
+
+        self.client.login(username="notify_detail_user", password="StrongPass123!")
+        response = self.client.get(reverse("notifications_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Ver detalle")
 
     def test_notifications_unread_api_returns_count_and_latest(self):
         user = User.objects.create_user(
@@ -1034,7 +1251,7 @@ class EventViewsTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Tu opinión fue guardada correctamente")
+        self.assertContains(response, "Tu opinión se guardó correctamente.")
         self.assertTrue(
             Review.objects.filter(
                 event=self.active_event,
@@ -1076,7 +1293,7 @@ class EventViewsTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "No publiques el mismo comentario consecutivamente")
+        self.assertContains(response, "No publiques el mismo comentario de forma consecutiva.")
         self.assertEqual(Review.objects.filter(event=self.active_event, user=user).count(), 1)
 
     def test_limits_reviews_per_user_and_event_to_five(self):
@@ -1103,7 +1320,7 @@ class EventViewsTests(TestCase):
         )
 
         self.assertEqual(blocked.status_code, 200)
-        self.assertContains(blocked, "Has alcanzado el")
+        self.assertContains(blocked, "Alcanzaste el límite de 5 opiniones para esta obra.")
         self.assertEqual(Review.objects.filter(event=self.active_event, user=user).count(), 5)
 
     def test_admin_can_delete_event_review(self):
@@ -1183,7 +1400,7 @@ class EventViewsTests(TestCase):
 
         blocked_samples = [
             "Ese man es hpta",
-            "Qué hijo de puta",
+            "QuÃ© hijo de puta",
             "Ese mk no respeta",
         ]
         for text in blocked_samples:
@@ -1333,7 +1550,7 @@ class EventViewsTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Reporte enviado con éxito")
+        self.assertContains(response, "Reporte enviado correctamente")
         self.assertTrue(
             ReviewReport.objects.filter(
                 review=review,
@@ -1385,7 +1602,8 @@ class EventViewsTests(TestCase):
         response = self.client.get(reverse("review_reports_list"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Reportes de comentarios")
+        self.assertContains(response, "Reportes de")
+        self.assertContains(response, "comentarios")
         self.assertContains(response, "Comentario reportado para lista")
         self.assertContains(
             response,
@@ -1678,8 +1896,12 @@ class AdminEventCreationTests(TestCase):
                 "location": "Teatro Central",
                 "organizer": "Productora A",
                 "category": "Concierto",
-                "unit_price_usd": "1.00",
-                "age_rating": Event.AgeRating.PLUS_12,
+                "general_price_usd": "1.00",
+                "general_ticket_limit": "100",
+                "enable_vip": "",
+                "vip_price_usd": "",
+                "vip_ticket_limit": "",
+                "age_rating": Event.AgeRating.PLUS_18,
                 "datetime": "2026-08-20T19:30",
                 "status": Event.Status.ACTIVE,
             },
@@ -1689,6 +1911,45 @@ class AdminEventCreationTests(TestCase):
         self.assertRedirects(response, reverse("event_detail", args=[created_event.pk]))
         self.assertEqual(created_event.status, Event.Status.ACTIVE)
         self.assertEqual(created_event.created_by, self.staff)
+        general_type = EventTicketType.objects.get(event=created_event, code=EventTicketType.Code.GENERAL)
+        self.assertEqual(general_type.price_usd, Decimal("1.00"))
+        self.assertEqual(general_type.stock_total, 100)
+        self.assertFalse(
+            EventTicketType.objects.filter(
+                event=created_event,
+                code=EventTicketType.Code.VIP,
+                is_active=True,
+            ).exists()
+        )
+
+    def test_create_event_can_enable_vip_ticket_type(self):
+        self.client.login(username="staff_creator", password="StrongPass123!")
+        response = self.client.post(
+            reverse("create_event"),
+            {
+                "title": "Evento VIP Admin",
+                "description": "Descripcion VIP",
+                "location": "Salon Norte",
+                "general_price_usd": "2.00",
+                "general_ticket_limit": "80",
+                "enable_vip": "on",
+                "vip_price_usd": "5.00",
+                "vip_ticket_limit": "20",
+                "age_rating": Event.AgeRating.ALL,
+                "datetime": "2026-09-20T19:30",
+                "status": Event.Status.ACTIVE,
+            },
+        )
+
+        created_event = Event.objects.get(title="Evento VIP Admin")
+        self.assertRedirects(response, reverse("event_detail", args=[created_event.pk]))
+        general_type = EventTicketType.objects.get(event=created_event, code=EventTicketType.Code.GENERAL)
+        vip_type = EventTicketType.objects.get(event=created_event, code=EventTicketType.Code.VIP)
+        self.assertEqual(general_type.price_usd, Decimal("2.00"))
+        self.assertEqual(general_type.stock_total, 80)
+        self.assertEqual(vip_type.price_usd, Decimal("5.00"))
+        self.assertEqual(vip_type.stock_total, 20)
+        self.assertTrue(vip_type.is_active)
 
     def test_create_active_event_notifies_normal_users(self):
         subscriber = User.objects.create_user(
@@ -1702,8 +1963,8 @@ class AdminEventCreationTests(TestCase):
                 "title": "Obra para notificar",
                 "description": "Descripcion",
                 "location": "Galeria",
-                "unit_price_usd": "1.00",
-                "ticket_limit": "100",
+                "general_price_usd": "1.00",
+                "general_ticket_limit": "100",
                 "age_rating": Event.AgeRating.ALL,
                 "datetime": "2026-10-20T19:30",
                 "status": Event.Status.ACTIVE,
@@ -1715,7 +1976,7 @@ class AdminEventCreationTests(TestCase):
         self.assertTrue(
             Notification.objects.filter(
                 user=subscriber,
-                title="Nueva obra disponible",
+                title="Nuevo evento disponible",
             ).exists()
         )
 
@@ -1743,10 +2004,12 @@ class AdminEventManagementTests(TestCase):
         response = self.client.get(reverse("event_detail", args=[self.event.pk]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Editar obra")
+        self.assertContains(response, "Editar evento")
         self.assertContains(response, "Guardar cambios")
-        self.assertContains(response, "Eliminar obra")
+        self.assertNotContains(response, "Eliminar evento")
         self.assertNotContains(response, "Comprar")
+        self.assertNotContains(response, "Iniciar sesi")
+        self.assertNotContains(response, "Registrarse")
 
     def test_staff_can_update_event(self):
         self.client.login(username="manage_staff", password="StrongPass123!")
@@ -1758,9 +2021,14 @@ class AdminEventManagementTests(TestCase):
                 "location": "Arena Sur",
                 "organizer": "Productora C",
                 "category": "Festival",
-                "unit_price_usd": "3.50",
+                "general_price_usd": "3.50",
+                "general_ticket_limit": "100",
+                "enable_vip": "on",
+                "vip_price_usd": "8.50",
+                "vip_ticket_limit": "25",
                 "age_rating": Event.AgeRating.PLUS_18,
                 "datetime": "2026-11-05T21:15",
+                "end_datetime": "",
                 "status": Event.Status.INACTIVE,
             },
         )
@@ -1770,49 +2038,113 @@ class AdminEventManagementTests(TestCase):
         self.assertEqual(self.event.title, "Evento Gestion Editado")
         self.assertEqual(self.event.unit_price_usd, Decimal("3.50"))
         self.assertEqual(self.event.status, Event.Status.INACTIVE)
+        general_type = EventTicketType.objects.get(event=self.event, code=EventTicketType.Code.GENERAL)
+        vip_type = EventTicketType.objects.get(event=self.event, code=EventTicketType.Code.VIP)
+        self.assertEqual(general_type.price_usd, Decimal("3.50"))
+        self.assertEqual(general_type.stock_total, 100)
+        self.assertEqual(vip_type.price_usd, Decimal("8.50"))
+        self.assertEqual(vip_type.stock_total, 25)
+        self.assertTrue(vip_type.is_active)
 
-    def test_staff_can_delete_event(self):
-        self.client.login(username="manage_staff", password="StrongPass123!")
-        response = self.client.post(reverse("delete_event", args=[self.event.pk]))
-
-        self.assertRedirects(response, reverse("event_list"))
-        self.assertFalse(Event.objects.filter(pk=self.event.pk).exists())
-
-    def test_deleting_event_cascades_related_orders_tickets_reviews_and_logs(self):
-        buyer = User.objects.create_user(username="event_cascade_buyer", password="StrongPass123!")
-        reviewer = User.objects.create_user(
-            username="event_cascade_reviewer", password="StrongPass123!"
+    def test_staff_event_detail_shows_summary_by_ticket_type(self):
+        vip_type = EventTicketType.objects.create(
+            event=self.event,
+            code=EventTicketType.Code.VIP,
+            name="VIP",
+            price_usd=Decimal("7.00"),
+            stock_total=30,
+            is_active=True,
+            display_order=2,
+            number_prefix="VIP",
         )
+        buyer = User.objects.create_user(username="event_summary_buyer", password="StrongPass123!")
+        general_order = Order.objects.create(
+            user=buyer,
+            event=self.event,
+            status=Order.Status.PAID,
+            unit_price_usd=Decimal("1.00"),
+            quantity=1,
+            total_usd=Decimal("1.00"),
+        )
+        Ticket.objects.create(
+            order=general_order,
+            event=self.event,
+            status=Ticket.Status.UNUSED,
+            raffle_number=1,
+            token_ref="summary.general",
+        )
+        vip_order = Order.objects.create(
+            user=buyer,
+            event=self.event,
+            ticket_type=vip_type,
+            status=Order.Status.PAID,
+            unit_price_usd=Decimal("7.00"),
+            quantity=1,
+            total_usd=Decimal("7.00"),
+        )
+        Ticket.objects.create(
+            order=vip_order,
+            event=self.event,
+            ticket_type=vip_type,
+            status=Ticket.Status.UNUSED,
+            raffle_number=1,
+            token_ref="summary.vip",
+        )
+
+        self.client.login(username="manage_staff", password="StrongPass123!")
+        response = self.client.get(reverse("event_detail", args=[self.event.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Boleta General")
+        self.assertContains(response, "Boleta VIP")
+        self.assertContains(response, "USD 7,00")
+
+    def test_staff_cannot_reduce_ticket_limit_below_emitted_tickets(self):
+        buyer = User.objects.create_user(username="event_limit_buyer", password="StrongPass123!")
         order = Order.objects.create(user=buyer, event=self.event, status=Order.Status.PAID)
-        ticket = Ticket.objects.create(
+        Ticket.objects.create(
             order=order,
             event=self.event,
             status=Ticket.Status.UNUSED,
-            token_ref="cascade.token",
+            raffle_number=1,
+            token_ref="limit.ticket.1",
         )
-        review = Review.objects.create(
+        Ticket.objects.create(
+            order=order,
             event=self.event,
-            user=reviewer,
-            comment="Comentario de cascada",
-        )
-        log = ValidationLog.objects.create(
-            ticket=ticket,
-            admin=self.staff,
-            outcome=ValidationLog.Outcome.ACCEPTED,
-            detail="Log asociado al ticket",
+            status=Ticket.Status.UNUSED,
+            raffle_number=2,
+            token_ref="limit.ticket.2",
         )
 
         self.client.login(username="manage_staff", password="StrongPass123!")
-        response = self.client.post(reverse("delete_event", args=[self.event.pk]))
+        response = self.client.post(
+            reverse("update_event", args=[self.event.pk]),
+            {
+                "title": "Evento Gestion",
+                "description": "",
+                "location": "",
+                "organizer": "",
+                "category": "",
+                "general_price_usd": "1.00",
+                "general_ticket_limit": "1",
+                "enable_vip": "",
+                "vip_price_usd": "",
+                "vip_ticket_limit": "",
+                "age_rating": Event.AgeRating.ALL,
+                "datetime": "2026-11-01T20:00",
+                "end_datetime": "",
+                "status": Event.Status.ACTIVE,
+            },
+            follow=True,
+        )
 
-        self.assertRedirects(response, reverse("event_list"))
-        self.assertFalse(Event.objects.filter(pk=self.event.pk).exists())
-        self.assertFalse(Order.objects.filter(pk=order.pk).exists())
-        self.assertFalse(Ticket.objects.filter(pk=ticket.pk).exists())
-        self.assertFalse(Review.objects.filter(pk=review.pk).exists())
-        self.assertFalse(ValidationLog.objects.filter(pk=log.pk).exists())
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No puedes reducir el limite por debajo de las entradas ya emitidas.")
+        self.event.refresh_from_db()
+        self.assertEqual(self.event.ticket_limit, 100)
 
-    def test_staff_can_upload_only_one_event_image(self):
+    def test_staff_can_upload_up_to_max_event_images(self):
         self.client.login(username="manage_staff", password="StrongPass123!")
         files = [
             SimpleUploadedFile(f"img{i}.jpg", b"fake-image-content", content_type="image/jpeg")
@@ -1825,7 +2157,7 @@ class AdminEventManagementTests(TestCase):
         )
 
         self.assertRedirects(response, reverse("event_detail", args=[self.event.pk]))
-        self.assertEqual(EventImage.objects.filter(event=self.event).count(), 1)
+        self.assertEqual(EventImage.objects.filter(event=self.event).count(), 3)
 
     def test_staff_can_delete_event_image(self):
         self.client.login(username="manage_staff", password="StrongPass123!")
@@ -1921,7 +2253,7 @@ class AdminEventManagementTests(TestCase):
         self.assertEqual(upload.status_code, 403)
         self.assertEqual(delete.status_code, 403)
 
-    def test_non_staff_cannot_update_or_delete_event(self):
+    def test_non_staff_cannot_update_event(self):
         self.client.login(username="manage_customer", password="StrongPass123!")
         update_response = self.client.post(
             reverse("update_event", args=[self.event.pk]),
@@ -1931,17 +2263,20 @@ class AdminEventManagementTests(TestCase):
                 "location": "No permitido",
                 "organizer": "No permitido",
                 "category": "No permitido",
+                "general_price_usd": "1.00",
+                "general_ticket_limit": "100",
+                "enable_vip": "",
+                "vip_price_usd": "",
+                "vip_ticket_limit": "",
                 "age_rating": Event.AgeRating.ALL,
                 "datetime": "2026-11-05T21:15",
+                "end_datetime": "",
                 "status": Event.Status.ACTIVE,
             },
         )
-        delete_response = self.client.post(reverse("delete_event", args=[self.event.pk]))
 
         self.assertEqual(update_response.status_code, 302)
         self.assertIn(reverse("login"), update_response.url)
-        self.assertEqual(delete_response.status_code, 302)
-        self.assertIn(reverse("login"), delete_response.url)
 
 
 class AdminUserManagementTests(TestCase):
@@ -1988,8 +2323,8 @@ class AdminUserManagementTests(TestCase):
         response = self.client.get(reverse("user_list"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Usuarios registrados")
-        self.assertContains(response, "Crear usuario nuevo")
+        self.assertContains(response, "Usuarios")
+        self.assertContains(response, "registrados")
         self.assertContains(response, "users_admin")
         self.assertContains(response, "users_customer")
         self.assertContains(response, "users_other_staff")
@@ -2001,7 +2336,7 @@ class AdminUserManagementTests(TestCase):
             {
                 "username": "created_from_admin",
                 "email": "created_from_admin@example.com",
-                "document_number": "100000101",
+                "display_name": "Creado desde admin",
                 "contact_number": "3001234569",
                 "password1": "StrongPass123!",
                 "password2": "StrongPass123!",
@@ -2269,9 +2604,9 @@ class AdminTicketManagementTests(TestCase):
         self.client.login(username="tickets_validator", password="StrongPass123!")
         response = self.client.get(reverse("user_tickets"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Participaciones compradas por usuarios")
-        self.assertNotContains(response, "Eliminar participación")
-
+        self.assertContains(response, "Participaciones compradas")
+        self.assertContains(response, "por usuarios")
+        self.assertNotContains(response, "Eliminar participacion")
     def test_validator_can_filter_user_tickets_by_username(self):
         validator = User.objects.create_user(
             username="tickets_validator_filter_user",
@@ -2292,48 +2627,60 @@ class AdminTicketManagementTests(TestCase):
         self.assertContains(response, "tickets_customer")
         self.assertNotContains(response, "tickets_other_customer")
 
-    def test_validator_cannot_delete_ticket(self):
-        validator = User.objects.create_user(
-            username="tickets_validator_no_delete",
-            password="StrongPass123!",
-        )
-        permission = Permission.objects.get(
-            content_type__app_label="core",
-            codename="can_validate_tickets",
-        )
-        group, _ = Group.objects.get_or_create(name="Validador")
-        group.permissions.add(permission)
-        validator.groups.add(group)
-
-        self.client.login(username="tickets_validator_no_delete", password="StrongPass123!")
-        response = self.client.post(reverse("delete_ticket", args=[self.ticket.pk]))
-        self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("login"), response.url)
-        self.assertTrue(Ticket.objects.filter(pk=self.ticket.pk).exists())
-
     def test_staff_can_view_user_tickets(self):
         self.client.login(username="tickets_admin", password="StrongPass123!")
         response = self.client.get(reverse("user_tickets"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Participaciones compradas por usuarios")
+        self.assertContains(response, "Participaciones compradas")
+        self.assertContains(response, "por usuarios")
         self.assertContains(response, "tickets_customer")
         self.assertContains(response, "Evento Tickets Admin")
         self.assertContains(response, self.ticket.raffle_number_display)
 
-    def test_staff_can_delete_ticket(self):
-        self.client.login(username="tickets_admin", password="StrongPass123!")
-        response = self.client.post(reverse("delete_ticket", args=[self.ticket.pk]))
+    def test_staff_can_view_ticket_type_summary_cards(self):
+        vip_type = EventTicketType.objects.create(
+            event=self.event,
+            code=EventTicketType.Code.VIP,
+            name="VIP",
+            price_usd=Decimal("8.00"),
+            stock_total=20,
+            is_active=True,
+            display_order=2,
+            number_prefix="VIP",
+        )
+        vip_order = Order.objects.create(
+            user=self.customer,
+            event=self.event,
+            ticket_type=vip_type,
+            status=Order.Status.PAID,
+            unit_price_usd=Decimal("8.00"),
+            quantity=1,
+            total_usd=Decimal("8.00"),
+        )
+        Ticket.objects.create(
+            order=vip_order,
+            event=self.event,
+            ticket_type=vip_type,
+            status=Ticket.Status.UNUSED,
+            token_ref="vip.token",
+            raffle_number=1,
+        )
 
-        self.assertRedirects(response, reverse("user_tickets"))
-        self.assertFalse(Ticket.objects.filter(pk=self.ticket.pk).exists())
+        self.client.login(username="tickets_admin", password="StrongPass123!")
+        response = self.client.get(reverse("user_tickets"), {"event_id": str(self.event.pk)})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Resumen General")
+        self.assertContains(response, "Resumen VIP")
+        self.assertContains(response, "USD 8,00")
 
     def test_staff_can_view_tickets_filtered_by_user(self):
         self.client.login(username="tickets_admin", password="StrongPass123!")
         response = self.client.get(reverse("user_tickets_by_user", args=[self.customer.pk]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Mostrando participaciones de")
+        self.assertContains(response, "Usuario seleccionado:")
         self.assertContains(response, "tickets_customer")
         self.assertContains(response, self.ticket.raffle_number_display)
         self.assertNotContains(response, f">{self.other_ticket.raffle_number_display}<")
@@ -2377,7 +2724,7 @@ class AdminTicketManagementTests(TestCase):
         response = self.client.get(reverse("user_ticket_qrs_by_user", args=[self.customer.pk]))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "QR de participaciones")
+        self.assertContains(response, "Codigos QR de")
         self.assertContains(response, "data:image/png;base64,")
 
     def test_user_ticket_qrs_requires_validation_permission(self):
@@ -2390,17 +2737,6 @@ class AdminTicketManagementTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login"), response.url)
 
-    def test_staff_can_delete_ticket_from_user_qr_page_and_return(self):
-        self.client.login(username="tickets_admin", password="StrongPass123!")
-        target = reverse("user_ticket_qrs_by_user", args=[self.customer.pk])
-        response = self.client.post(
-            reverse("delete_ticket", args=[self.ticket.pk]),
-            {"next": target},
-        )
-
-        self.assertRedirects(response, target)
-        self.assertFalse(Ticket.objects.filter(pk=self.ticket.pk).exists())
-
     def test_user_list_shows_link_to_view_user_tickets(self):
         self.client.login(username="tickets_admin", password="StrongPass123!")
         response = self.client.get(reverse("user_list"))
@@ -2408,7 +2744,7 @@ class AdminTicketManagementTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
-            reverse("user_tickets_by_user", args=[self.customer.pk]),
+            reverse("user_ticket_qrs_by_user", args=[self.customer.pk]),
         )
 
     def test_user_list_filters_by_username_query(self):
@@ -2614,9 +2950,8 @@ class ProfileCustomizationTests(TestCase):
         self.client.login(username="profile_user", password="StrongPass123!")
         response = self.client.get(reverse("edit_profile"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Correo electronico")
+        self.assertContains(response, "Correo electrónico")
         self.assertContains(response, 'name="email"')
-        self.assertContains(response, 'name="document_number"')
         self.assertContains(response, 'name="contact_number"')
 
     def test_profile_rejects_non_numeric_document_or_contact(self):
@@ -2634,7 +2969,7 @@ class ProfileCustomizationTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "solo puede contener digitos")
+        self.assertContains(response, "solo puede contener dígitos")
 
 
 class ConcurrencyValidationTests(TransactionTestCase):
@@ -2672,9 +3007,11 @@ class ConcurrencyValidationTests(TransactionTestCase):
 
 class QuickValidationScenariosTests(TestCase):
     def setUp(self):
+        now = datetime.now(timezone.utc)
         self.event = Event.objects.create(
             title="Evento Demo Rapida",
-            datetime=datetime(2026, 7, 1, 19, 0, tzinfo=timezone.utc),
+            datetime=now - timedelta(hours=1),
+            end_datetime=now + timedelta(days=1),
             status=Event.Status.ACTIVE,
         )
         self.customer = User.objects.create_user(

@@ -88,7 +88,7 @@ def build_qr_jpg_bytes(content: str) -> bytes:
     return output.getvalue()
 
 
-def consume_ticket_atomic(ticket_id: int, retries: int = 3) -> bool:
+def consume_ticket_atomic(ticket_id: int, retries: int = 10) -> bool:
     from .models import Ticket
 
     for attempt in range(retries):
@@ -102,6 +102,6 @@ def consume_ticket_atomic(ticket_id: int, retries: int = 3) -> bool:
         except OperationalError:
             if attempt == retries - 1:
                 raise
-            time.sleep(0.01)
+            time.sleep(0.02 * (attempt + 1))
 
     return False

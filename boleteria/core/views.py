@@ -11,7 +11,8 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.contrib.auth.views import LoginView
 from django.db import IntegrityError, OperationalError, transaction
-from django.db.models import Count, Max, Prefetch, Q
+from django.db.models import Count, Max, Min, Prefetch, Q, Sum
+from django.db.models.functions import Coalesce
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 from django.http import (
@@ -42,6 +43,7 @@ from .forms import (
 from .models import (
     Event,
     EventImage,
+    EventTicketType,
     Notification,
     Order,
     Profile,
@@ -83,14 +85,25 @@ def _can_validate_tickets(user):
     return bool(user.is_authenticated and user.has_perm("core.can_validate_tickets"))
 
 
+def _validator_group_names():
+    return ["Validador", "Validator"]
+
+
 def _ensure_validator_group():
-    group, _ = Group.objects.get_or_create(name="Validator")
+    primary_name = _validator_group_names()[0]
+    group, _ = Group.objects.get_or_create(name=primary_name)
     permission = Permission.objects.filter(
         content_type__app_label="core",
         codename="can_validate_tickets",
     ).first()
     if permission and not group.permissions.filter(pk=permission.pk).exists():
         group.permissions.add(permission)
+    for alias in _validator_group_names()[1:]:
+        legacy_group = Group.objects.filter(name=alias).first()
+        if not legacy_group:
+            continue
+        if permission and not legacy_group.permissions.filter(pk=permission.pk).exists():
+            legacy_group.permissions.add(permission)
     return group
 
 
@@ -113,12 +126,24 @@ def _display_name_for_user(user):
 def _ticket_validation_info(ticket):
     buyer = ticket.order.user
     raffle_status = "Sorteo realizado" if ticket.event.has_finished() else "En espera del sorteo"
+    ticket_type_name = (
+        ticket.ticket_type.name
+        if getattr(ticket, "ticket_type_id", None) and ticket.ticket_type
+        else "General"
+    )
+    ticket_type_code = (
+        ticket.ticket_type.code
+        if getattr(ticket, "ticket_type_id", None) and ticket.ticket_type
+        else EventTicketType.Code.GENERAL
+    )
     return {
         "title": ticket.event.title,
         "buyer_name": _display_name_for_user(buyer),
         "start_at": ticket.event.datetime,
         "draw_at": ticket.event.end_datetime or ticket.event.datetime,
         "ticket_number": ticket.raffle_number_display or str(ticket.ticket_uuid),
+        "ticket_type_name": ticket_type_name,
+        "ticket_type_code": ticket_type_code,
         "raffle_status": raffle_status,
     }
 
@@ -222,12 +247,67 @@ def _build_my_tickets_context(user, selected_event_id=None, transfer_state=None)
     }
 
 
+def _active_ticket_type_cards(event):
+    general_type = event.ensure_general_ticket_type()
+    ticket_types = list(event.ticket_types.filter(is_active=True).order_by("display_order", "id"))
+    if not any(ticket_type.pk == general_type.pk for ticket_type in ticket_types):
+        ticket_types.insert(0, general_type)
+
+    cards = []
+    for ticket_type in ticket_types:
+        sold_count = ticket_type.tickets.count()
+        remaining_count = max(ticket_type.stock_total - sold_count, 0)
+        cards.append(
+            {
+                "ticket_type": ticket_type,
+                "sold_count": sold_count,
+                "remaining_count": remaining_count,
+                "max_purchase_quantity": min(20, remaining_count),
+                "is_vip": ticket_type.code == EventTicketType.Code.VIP,
+            }
+        )
+    return cards
+
+
+def _build_ticket_type_summary(tickets_queryset):
+    rows = (
+        tickets_queryset.values("ticket_type__code", "ticket_type__name")
+        .annotate(
+            sold_count=Count("id"),
+            revenue_total=Sum("order__unit_price_usd"),
+        )
+        .order_by("ticket_type__code")
+    )
+    summary = []
+    for row in rows:
+        code = row["ticket_type__code"] or EventTicketType.Code.GENERAL
+        name = row["ticket_type__name"] or "General"
+        summary.append(
+            {
+                "code": code,
+                "name": name,
+                "sold_count": row["sold_count"] or 0,
+                "revenue_total": row["revenue_total"] or Decimal("0.00"),
+                "is_vip": code == EventTicketType.Code.VIP,
+            }
+        )
+    return summary
+
+
+def _ticket_type_label(ticket):
+    if getattr(ticket, "ticket_type_id", None) and ticket.ticket_type:
+        return ticket.ticket_type.name
+    return "General"
+
+
 def _preview_ticket_transfer(owner, ticket, target_email, selected_event_id):
     normalized_email = (target_email or "").strip().lower()
+    ticket_type_label = _ticket_type_label(ticket)
     transfer_state = {
         "mode": "form",
         "ticket_id": ticket.pk,
         "ticket_number": ticket.raffle_number_display,
+        "ticket_type_name": ticket_type_label,
         "target_email": normalized_email,
         "selected_event_id": selected_event_id,
     }
@@ -251,6 +331,7 @@ def _preview_ticket_transfer(owner, ticket, target_email, selected_event_id):
             "recipient_id": recipient.pk,
             "recipient_name": _display_name_for_user(recipient),
             "recipient_email": recipient.email,
+            "ticket_type_name": ticket_type_label,
             "transfer_token": signing.dumps(
                 {
                     "ticket_id": ticket.pk,
@@ -299,6 +380,7 @@ def _confirm_ticket_transfer(owner, ticket_id, transfer_token):
         recipient_order = Order.objects.create(
             user=recipient,
             event=ticket.event,
+            ticket_type=original_order.ticket_type or ticket.ticket_type,
             unit_price_usd=original_order.unit_price_usd,
             quantity=1,
             total_usd=original_order.unit_price_usd,
@@ -318,21 +400,22 @@ def _confirm_ticket_transfer(owner, ticket_id, transfer_token):
             original_order.save(update_fields=["quantity", "total_usd"])
 
     link = f'{reverse("my_tickets")}?event_id={ticket.event_id}'
+    transferred_ticket_type = _ticket_type_label(ticket)
     _create_notification_if_missing(
         recipient,
         "Boleta recibida",
-        f'Recibiste la boleta #{ticket.raffle_number_display} del evento "{ticket.event.title}".',
+        f'Recibiste la boleta {transferred_ticket_type} #{ticket.raffle_number_display} del evento "{ticket.event.title}".',
         link,
     )
-    return True, f'La boleta #{ticket.raffle_number_display} fue transferida a {_display_name_for_user(recipient)}.'
+    return True, f'La boleta {transferred_ticket_type} #{ticket.raffle_number_display} fue transferida a {_display_name_for_user(recipient)}.'
 
 
 def _notify_new_event_available(event):
     link = reverse("event_detail", args=[event.pk])
     users = User.objects.filter(is_staff=False, is_active=True)
-    title = "New event available"
+    title = "Nuevo evento disponible"
     for user in users:
-        body = f'A new event was published "{event.title}".'
+        body = f'Se publicó un nuevo evento: "{event.title}".'
         _create_notification_if_missing(user, title, body, link)
 
 
@@ -387,9 +470,30 @@ class EventListView(ListView):
     context_object_name = "events"
 
     def get_queryset(self):
+        for event in Event.objects.filter(_active_and_not_finished_filter()).only("id", "unit_price_usd", "ticket_limit"):
+            event.ensure_general_ticket_type()
         return (
             Event.objects.filter(_active_and_not_finished_filter())
             .prefetch_related("images")
+            .annotate(
+                active_ticket_types_count=Count(
+                    "ticket_types",
+                    filter=Q(ticket_types__is_active=True),
+                    distinct=True,
+                ),
+                vip_ticket_types_count=Count(
+                    "ticket_types",
+                    filter=Q(
+                        ticket_types__is_active=True,
+                        ticket_types__code=EventTicketType.Code.VIP,
+                    ),
+                    distinct=True,
+                ),
+                min_ticket_price=Coalesce(
+                    Min("ticket_types__price_usd", filter=Q(ticket_types__is_active=True)),
+                    "unit_price_usd",
+                ),
+            )
             .order_by("-created_at", "-id")
         )
 
@@ -404,14 +508,23 @@ class EventDetailView(DetailView):
             return Event.objects.all()
         if self.request.user.is_authenticated:
             return Event.objects.filter(
-                _active_and_not_finished_filter() | Q(created_by=self.request.user)
+                (
+                    Q(status=Event.Status.ACTIVE)
+                    & (Q(end_datetime__gt=timezone.now()) | Q(end_datetime__isnull=True))
+                )
+                | Q(created_by=self.request.user)
             )
-        return Event.objects.filter(_active_and_not_finished_filter())
+        return Event.objects.filter(
+            Q(status=Event.Status.ACTIVE)
+            & (Q(end_datetime__gt=timezone.now()) | Q(end_datetime__isnull=True))
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        sold_tickets_count = self.object.tickets.count()
-        remaining_tickets_count = max(self.object.ticket_limit - sold_tickets_count, 0)
+        ticket_type_cards = _active_ticket_type_cards(self.object)
+        total_ticket_stock = sum(card["ticket_type"].stock_total for card in ticket_type_cards)
+        sold_tickets_count = sum(card["sold_count"] for card in ticket_type_cards)
+        remaining_tickets_count = sum(card["remaining_count"] for card in ticket_type_cards)
         replies_qs = Review.objects.select_related("user").order_by("created_at")
         reviews = list(
             self.object.reviews.filter(parent__isnull=True)
@@ -424,6 +537,9 @@ class EventDetailView(DetailView):
         context["event_image_urls"] = [img.image.url for img in context["event_images"]]
         context["can_manage_event_images"] = _can_manage_event_images(self.request.user, self.object)
         context["event_has_finished"] = self.object.has_finished()
+        context["ticket_type_cards"] = ticket_type_cards
+        context["admin_ticket_type_summary"] = ticket_type_cards
+        context["total_ticket_stock"] = total_ticket_stock
         context["sold_tickets_count"] = sold_tickets_count
         context["remaining_tickets_count"] = remaining_tickets_count
         context["max_purchase_quantity"] = min(20, remaining_tickets_count)
@@ -700,6 +816,7 @@ def purchase_event(request, pk):
         return HttpResponseBadRequest("Este evento aun no ha comenzado.")
     if event.has_finished():
         return HttpResponseBadRequest("Este evento ya finalizo y no acepta compras.")
+    ticket_type_code = (request.POST.get("ticket_type") or EventTicketType.Code.GENERAL).strip().lower()
     quantity_raw = request.POST.get("quantity", "1")
     try:
         quantity = int(quantity_raw)
@@ -712,13 +829,19 @@ def purchase_event(request, pk):
         try:
             with transaction.atomic():
                 event = Event.objects.select_for_update().get(pk=event.pk)
+                ticket_type = event.ticket_types.filter(code=ticket_type_code, is_active=True).first()
+                if not ticket_type:
+                    if ticket_type_code == EventTicketType.Code.GENERAL:
+                        ticket_type = event.ensure_general_ticket_type()
+                    else:
+                        return HttpResponseBadRequest("El tipo de boleta seleccionado no esta disponible.")
                 used_numbers = set(
-                    Ticket.objects.filter(event=event, raffle_number__isnull=False).values_list(
+                    Ticket.objects.filter(ticket_type=ticket_type, raffle_number__isnull=False).values_list(
                         "raffle_number",
                         flat=True,
                     )
                 )
-                total_numbers = event.ticket_limit
+                total_numbers = ticket_type.stock_total
                 remaining_tickets_count = max(total_numbers - len(used_numbers), 0)
                 if remaining_tickets_count <= 0:
                     return HttpResponseBadRequest("No hay entradas QR disponibles para este evento.")
@@ -729,11 +852,12 @@ def purchase_event(request, pk):
                 available_numbers = [number for number in range(1, total_numbers + 1) if number not in used_numbers]
                 assigned_numbers = available_numbers[:quantity]
 
-                unit_price_usd = event.unit_price_usd
+                unit_price_usd = ticket_type.price_usd
                 total_usd = (unit_price_usd * Decimal(quantity)).quantize(Decimal("0.01"))
                 order = Order.objects.create(
                     user=request.user,
                     event=event,
+                    ticket_type=ticket_type,
                     unit_price_usd=unit_price_usd,
                     quantity=quantity,
                     total_usd=total_usd,
@@ -744,6 +868,7 @@ def purchase_event(request, pk):
                     ticket = Ticket.objects.create(
                         order=order,
                         event=event,
+                        ticket_type=ticket_type,
                         status=Ticket.Status.UNUSED,
                         raffle_number=raffle_number,
                     )
@@ -768,6 +893,7 @@ def purchase_event(request, pk):
         {
             "event": event,
             "order": order,
+            "ticket_type": ticket_type,
             "quantity": quantity,
             "unit_price_usd": unit_price_usd,
             "total_usd": total_usd,
@@ -1036,7 +1162,7 @@ def report_review(request, event_pk, review_pk):
 
     review = get_object_or_404(Review, pk=review_pk, event_id=event_pk)
     if review.user_id == request.user.pk:
-        messages.error(request, "You cannot report your own comment.")
+        messages.error(request, "No puedes reportar tu propio comentario.")
         return redirect(f"{reverse('event_detail', args=[event_pk])}#opiniones")
 
     report, created = ReviewReport.objects.get_or_create(
@@ -1058,11 +1184,8 @@ def report_review(request, event_pk, review_pk):
         notifications = [
             Notification(
                 user=admin,
-                title="New comment report",
-                body=(
-                    f"{reporter_name} reported a comment on event "
-                    f"\"{review.event.title}\"."
-                ),
+                title="Nuevo reporte de comentario",
+                body=f'{reporter_name} reportó un comentario en el evento "{review.event.title}".',
                 link_url=reports_link,
             )
             for admin in admins
@@ -1119,6 +1242,7 @@ def create_event(request):
         event = form.save(commit=False)
         event.created_by = request.user
         event.save()
+        form._save_ticket_types(event)
 
         files = request.FILES.getlist("images")
         selected_files = files[:MAX_EVENT_IMAGES]
@@ -1154,7 +1278,13 @@ def update_event(request, pk):
     event = get_object_or_404(Event, pk=pk)
     form = EventUpdateForm(request.POST, instance=event)
     if not form.is_valid():
-        messages.error(request, "No se pudieron guardar los cambios del evento.")
+        if any(field in form.errors for field in ["general_ticket_limit", "vip_ticket_limit", "enable_vip"]):
+            messages.error(
+                request,
+                "No puedes reducir el limite por debajo de las entradas ya emitidas.",
+            )
+        else:
+            messages.error(request, "No se pudieron guardar los cambios del evento.")
         return redirect("event_detail", pk=event.pk)
 
     form.save()
@@ -1198,17 +1328,6 @@ def update_event(request, pk):
 
     messages.success(request, "Los cambios se guardaron correctamente.")
     return redirect("event_detail", pk=event.pk)
-
-
-@login_required
-@user_passes_test(lambda user: user.is_staff)
-def delete_event(request, pk):
-    if request.method != "POST":
-        return HttpResponseNotAllowed(["POST"])
-
-    event = get_object_or_404(Event, pk=pk)
-    event.delete()
-    return redirect("event_list")
 
 
 @login_required
@@ -1280,16 +1399,16 @@ def user_list(request):
     if role_filter == "admin":
         users = users.filter(is_staff=True)
     elif role_filter == "validator":
-        users = users.filter(is_staff=False, groups__name="Validator")
+        users = users.filter(is_staff=False, groups__name__in=_validator_group_names())
     elif role_filter == "user":
-        users = users.filter(is_staff=False).exclude(groups__name="Validator")
+        users = users.filter(is_staff=False).exclude(groups__name__in=_validator_group_names())
     if account_filter == "blocked":
         users = users.filter(is_active=False)
     elif account_filter == "active":
         users = users.filter(is_active=True)
     users = users.distinct()
     validator_user_ids = set(
-        User.objects.filter(groups__name="Validator").values_list("id", flat=True)
+        User.objects.filter(groups__name__in=_validator_group_names()).values_list("id", flat=True)
     )
     return render(
         request,
@@ -1389,9 +1508,9 @@ def revoke_validator_role(request, pk):
         return HttpResponseBadRequest("Solo la cuenta admin puede quitar el rol validador.")
 
     user = get_object_or_404(User, pk=pk)
-    validator_group = Group.objects.filter(name="Validator").first()
-    if validator_group:
-        user.groups.remove(validator_group)
+    validator_groups = Group.objects.filter(name__in=_validator_group_names())
+    if validator_groups.exists():
+        user.groups.remove(*validator_groups)
     return redirect("user_list")
 
 
@@ -1436,11 +1555,12 @@ def unblock_user_account(request, pk):
 def user_tickets(request):
     event_id = request.GET.get("event_id", "").strip()
     username_query = request.GET.get("username", "").strip()
-    tickets = Ticket.objects.select_related("order__user", "event")
+    tickets = Ticket.objects.select_related("order__user", "event", "ticket_type")
     if event_id.isdigit():
         tickets = tickets.filter(event_id=int(event_id))
     if username_query:
         tickets = tickets.filter(order__user__username__icontains=username_query)
+    summary_cards = _build_ticket_type_summary(tickets)
     tickets = tickets.order_by("-issued_at", "-id")
     events = Event.objects.order_by("title")
     return render(
@@ -1453,6 +1573,7 @@ def user_tickets(request):
             "selected_event_id": event_id,
             "username_query": username_query,
             "current_url": request.get_full_path(),
+            "summary_cards": summary_cards,
         },
     )
 
@@ -1463,11 +1584,12 @@ def user_tickets_by_user(request, user_id):
     selected_user = get_object_or_404(User, pk=user_id)
     event_id = request.GET.get("event_id", "").strip()
     username_query = ""
-    tickets = Ticket.objects.select_related("order__user", "event").filter(
+    tickets = Ticket.objects.select_related("order__user", "event", "ticket_type").filter(
         order__user_id=user_id
     )
     if event_id.isdigit():
         tickets = tickets.filter(event_id=int(event_id))
+    summary_cards = _build_ticket_type_summary(tickets)
     tickets = tickets.order_by("-issued_at", "-id")
     events = Event.objects.order_by("title")
     return render(
@@ -1480,6 +1602,7 @@ def user_tickets_by_user(request, user_id):
             "selected_event_id": event_id,
             "username_query": username_query,
             "current_url": request.get_full_path(),
+            "summary_cards": summary_cards,
         },
     )
 
@@ -1519,24 +1642,6 @@ def user_ticket_qrs_by_user(request, user_id):
             "return_url": next_url,
         },
     )
-
-
-@login_required
-@user_passes_test(lambda user: user.is_staff)
-def delete_ticket(request, pk):
-    if request.method != "POST":
-        return HttpResponseNotAllowed(["POST"])
-
-    ticket = get_object_or_404(Ticket, pk=pk)
-    ticket.delete()
-    next_url = request.POST.get("next", "").strip()
-    if next_url and url_has_allowed_host_and_scheme(
-        url=next_url,
-        allowed_hosts={request.get_host()},
-        require_https=request.is_secure(),
-    ):
-        return redirect(next_url)
-    return redirect("user_tickets")
 
 
 @login_required
@@ -1655,8 +1760,8 @@ def submit_event_review(request, pk):
         )
         if parent_review and parent_review.user_id != request.user.pk:
             owner = parent_review.user
-            title = "Someone replied to your comment"
-            body = f'You received a reply on event "{event.title}".'
+            title = "Respondieron tu comentario"
+            body = f'Recibiste una respuesta en el evento "{event.title}".'
             link = f"{reverse('event_detail', args=[event.pk])}#review-{created_review.pk}"
             _create_notification_if_missing(owner, title, body, link)
         return redirect(f"{reverse('event_detail', args=[event.pk])}?reviewed=1#opiniones")

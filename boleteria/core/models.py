@@ -56,6 +56,34 @@ class Event(models.Model):
         blank=True,
     )
 
+    def ensure_general_ticket_type(self):
+        defaults = {
+            "name": "General",
+            "price_usd": self.unit_price_usd,
+            "stock_total": self.ticket_limit,
+            "is_active": True,
+            "display_order": 1,
+            "number_prefix": "G",
+        }
+        ticket_type, created = self.ticket_types.get_or_create(
+            code=EventTicketType.Code.GENERAL,
+            defaults=defaults,
+        )
+        if not created:
+            updated_fields = []
+            if ticket_type.name != defaults["name"]:
+                ticket_type.name = defaults["name"]
+                updated_fields.append("name")
+            if ticket_type.number_prefix != defaults["number_prefix"]:
+                ticket_type.number_prefix = defaults["number_prefix"]
+                updated_fields.append("number_prefix")
+            if ticket_type.display_order != defaults["display_order"]:
+                ticket_type.display_order = defaults["display_order"]
+                updated_fields.append("display_order")
+            if updated_fields:
+                ticket_type.save(update_fields=updated_fields)
+        return ticket_type
+
     def __str__(self):
         return f"{self.title} ({self.datetime:%Y-%m-%d %H:%M})"
 
@@ -107,6 +135,13 @@ class Order(models.Model):
         on_delete=models.CASCADE,
         related_name="orders",
     )
+    ticket_type = models.ForeignKey(
+        "EventTicketType",
+        on_delete=models.PROTECT,
+        related_name="orders",
+        null=True,
+        blank=True,
+    )
     unit_price_usd = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("1.00"))
     quantity = models.PositiveIntegerField(default=1)
     total_usd = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("1.00"))
@@ -138,6 +173,13 @@ class Ticket(models.Model):
         on_delete=models.CASCADE,
         related_name="tickets",
     )
+    ticket_type = models.ForeignKey(
+        "EventTicketType",
+        on_delete=models.PROTECT,
+        related_name="tickets",
+        null=True,
+        blank=True,
+    )
     status = models.CharField(
         max_length=16,
         choices=Status.choices,
@@ -151,9 +193,9 @@ class Ticket(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["event", "raffle_number"],
+                fields=["ticket_type", "raffle_number"],
                 condition=Q(raffle_number__isnull=False),
-                name="unique_raffle_number_per_event",
+                name="unique_raffle_number_per_ticket_type",
             )
         ]
 
@@ -163,26 +205,93 @@ class Ticket(models.Model):
     @property
     def raffle_number_display(self):
         width = 1
-        if self.event_id and self.event:
+        prefix = ""
+        if self.ticket_type_id and self.ticket_type:
+            width = self.ticket_type.raffle_number_width
+            prefix = (self.ticket_type.number_prefix or "").strip()
+        elif self.event_id and self.event:
             width = self.event.raffle_number_width
         if self.raffle_number is None:
             return ""
-        return str(self.raffle_number).zfill(width)
+        number = str(self.raffle_number).zfill(width)
+        return f"{prefix}-{number}" if prefix else number
 
     def save(self, *args, **kwargs):
+        if self.ticket_type_id is None:
+            if self.order_id and self.order and self.order.ticket_type_id:
+                self.ticket_type = self.order.ticket_type
+            elif self.event_id:
+                self.ticket_type = self.event.ensure_general_ticket_type()
         if self.raffle_number is None and self.event_id:
+            ticket_type_id = self.ticket_type_id
             row = (
-                Ticket.objects.filter(event_id=self.event_id)
+                Ticket.objects.filter(ticket_type_id=ticket_type_id)
                 .exclude(pk=self.pk)
                 .aggregate(max_number=Max("raffle_number"))
             )
             current_max = row.get("max_number")
             next_number = 1 if current_max is None else current_max + 1
-            event_limit = Event.objects.filter(pk=self.event_id).values_list("ticket_limit", flat=True).first()
-            if event_limit is not None and next_number > event_limit:
-                raise ValueError("There are no more raffle numbers available for this artwork.")
+            stock_total = None
+            if self.ticket_type_id and self.ticket_type:
+                stock_total = self.ticket_type.stock_total
+            elif self.event_id:
+                stock_total = Event.objects.filter(pk=self.event_id).values_list("ticket_limit", flat=True).first()
+            if stock_total is not None and next_number > stock_total:
+                raise ValueError("There are no more raffle numbers available for this ticket type.")
             self.raffle_number = next_number
         super().save(*args, **kwargs)
+
+
+class EventTicketType(models.Model):
+    class Code(models.TextChoices):
+        GENERAL = "general", "General"
+        VIP = "vip", "VIP"
+
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="ticket_types",
+    )
+    code = models.CharField(max_length=32, choices=Code.choices)
+    name = models.CharField(max_length=80)
+    price_usd = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("1.00"),
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    stock_total = models.PositiveIntegerField(
+        default=100,
+        validators=[MinValueValidator(1)],
+    )
+    is_active = models.BooleanField(default=True)
+    display_order = models.PositiveIntegerField(default=1)
+    number_prefix = models.CharField(max_length=16, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["display_order", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "code"],
+                name="unique_ticket_type_code_per_event",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.event.title} - {self.name}"
+
+    @property
+    def sold_tickets_count(self):
+        return self.tickets.count()
+
+    @property
+    def remaining_tickets_count(self):
+        return max(self.stock_total - self.sold_tickets_count, 0)
+
+    @property
+    def raffle_number_width(self):
+        return max(1, len(str(self.stock_total)))
 
 
 class ValidationLog(models.Model):

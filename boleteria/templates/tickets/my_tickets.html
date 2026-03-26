@@ -75,7 +75,13 @@
         {% if tickets_with_qr %}
           <div class="space-y-4">
             {% for row in tickets_with_qr %}
-              <article class="rounded-xl border border-slate-200 bg-white p-4">
+              <article class="rounded-[1.5rem] border p-4 {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}border-[#C8A23A] bg-[linear-gradient(145deg,#0B0B0D_0%,#1A1A1F_55%,#2A2212_100%)] text-white shadow-[0_18px_40px_rgba(20,20,24,0.35)]{% else %}border-slate-200 bg-white{% endif %}">
+                <p class="text-sm">
+                  <strong>Tipo de entrada:</strong>
+                  <span class="inline-flex rounded-full px-2 py-1 text-xs font-bold uppercase tracking-[0.18em] {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}bg-[#1A1A1F] text-[#F5D77E]{% else %}bg-[#EAF2FF] text-[#0D2A5C]{% endif %}">
+                    {% if row.ticket.ticket_type %}{{ row.ticket.ticket_type.name }}{% else %}General{% endif %}
+                  </span>
+                </p>
                 <p class="text-sm"><strong>Número de entrada:</strong> {{ row.ticket.raffle_number_display }}</p>
                 <p class="text-sm"><strong>Estado:</strong> {{ row.ticket.get_status_display }}</p>
                 <p class="text-sm"><strong>Emitido:</strong> {{ row.ticket.issued_at }}</p>
@@ -88,8 +94,10 @@
                   </p>
                 {% else %}
                   {% if row.qr_data_uri %}
-                    <p class="mt-3 text-sm text-slate-600">Presenta este codigo QR al ingresar.</p>
-                    <img class="mt-3 w-full max-w-44 rounded-lg border border-slate-200" src="{{ row.qr_data_uri }}" alt="Ticket QR {{ row.ticket.ticket_uuid }}">
+                    <p class="mt-3 text-sm {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}text-slate-200{% else %}text-slate-600{% endif %}">Presenta este codigo QR al ingresar.</p>
+                    <div class="mt-3 inline-block rounded-[1.25rem] bg-white p-4 shadow-soft">
+                      <img class="w-full max-w-44 rounded-lg border border-slate-200" src="{{ row.qr_data_uri }}" alt="Ticket QR {{ row.ticket.ticket_uuid }}">
+                    </div>
                   {% endif %}
                 {% endif %}
                 <div class="mt-4 flex flex-wrap items-center gap-2">
@@ -139,7 +147,7 @@
       {% if transfer_state and transfer_state.mode == "confirm" %}
         <h3 id="ticket-transfer-title" class="text-lg font-semibold text-slate-900">Confirmar transferencia</h3>
         <p class="mt-2 text-sm text-slate-700">
-          Estas seguro de transferir la boleta #{{ transfer_state.ticket_number }} a nombre de {{ transfer_state.recipient_name }}?
+          Estas seguro de transferir la boleta {{ transfer_state.ticket_type_name|default:"General" }} #{{ transfer_state.ticket_number }} a nombre de {{ transfer_state.recipient_name }}?
         </p>
         <p class="mt-2 text-sm text-slate-500">{{ transfer_state.recipient_email }}</p>
         <div class="mt-5 flex items-center justify-end gap-2">
@@ -156,6 +164,9 @@
       {% else %}
         <h3 id="ticket-transfer-title" class="text-lg font-semibold text-slate-900">Transferir entrada</h3>
         <p class="mt-2 text-sm text-slate-700">Ingresa el correo del usuario registrado en la plataforma que recibira esta boleta.</p>
+        {% if transfer_state and transfer_state.ticket_type_name and transfer_state.ticket_number %}
+          <p class="mt-2 text-sm text-slate-600">Boleta seleccionada: <strong>{{ transfer_state.ticket_type_name }} #{{ transfer_state.ticket_number }}</strong></p>
+        {% endif %}
         <form class="mt-4 space-y-4" method="post" action="{% url 'my_tickets' %}">
           {% csrf_token %}
           <input type="hidden" name="action" value="preview">

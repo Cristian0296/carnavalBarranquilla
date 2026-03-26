@@ -4,7 +4,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.utils import timezone
 
-from .models import Event, Profile, Review
+from .models import Event, EventTicketType, Profile, Review
 
 
 def _clean_digits_only(value, required_message, invalid_message):
@@ -16,13 +16,156 @@ def _clean_digits_only(value, required_message, invalid_message):
     return normalized
 
 
-class EventCreateForm(forms.ModelForm):
-    ticket_limit = forms.IntegerField(
-        required=True,
-        min_value=1,
-        initial=100,
-        label="Cantidad de entradas QR disponibles",
-    )
+class EventTicketTypesFormMixin:
+    stock_limit_error_message = "No puedes reducir el limite por debajo de las entradas ya emitidas."
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["general_price_usd"] = forms.DecimalField(
+            required=True,
+            min_value=0.01,
+            decimal_places=2,
+            max_digits=10,
+            label="Precio boleta general (USD)",
+        )
+        self.fields["general_ticket_limit"] = forms.IntegerField(
+            required=True,
+            min_value=1,
+            initial=100,
+            label="Cantidad boleta general",
+        )
+        self.fields["enable_vip"] = forms.BooleanField(
+            required=False,
+            label="Activar boleta VIP",
+        )
+        self.fields["vip_price_usd"] = forms.DecimalField(
+            required=False,
+            min_value=0.01,
+            decimal_places=2,
+            max_digits=10,
+            label="Precio boleta VIP (USD)",
+        )
+        self.fields["vip_ticket_limit"] = forms.IntegerField(
+            required=False,
+            min_value=1,
+            label="Cantidad boleta VIP",
+        )
+        general_type = self._get_existing_ticket_type(EventTicketType.Code.GENERAL)
+        vip_type = self._get_existing_ticket_type(EventTicketType.Code.VIP)
+        if general_type:
+            self.fields["general_price_usd"].initial = general_type.price_usd
+            self.fields["general_ticket_limit"].initial = general_type.stock_total
+        elif self.instance and self.instance.pk:
+            self.fields["general_price_usd"].initial = self.instance.unit_price_usd
+            self.fields["general_ticket_limit"].initial = self.instance.ticket_limit
+
+        self.fields["enable_vip"].initial = bool(vip_type and vip_type.is_active)
+        if vip_type:
+            self.fields["vip_price_usd"].initial = vip_type.price_usd
+            self.fields["vip_ticket_limit"].initial = vip_type.stock_total
+
+    def _get_existing_ticket_type(self, code):
+        if not getattr(self.instance, "pk", None):
+            return None
+        if not hasattr(self, "_ticket_types_by_code"):
+            self._ticket_types_by_code = {
+                ticket_type.code: ticket_type
+                for ticket_type in self.instance.ticket_types.all()
+            }
+        return self._ticket_types_by_code.get(code)
+
+    def _issued_tickets_count_for(self, code):
+        ticket_type = self._get_existing_ticket_type(code)
+        if not ticket_type:
+            return 0
+        return ticket_type.tickets.count()
+
+    def clean_general_ticket_limit(self):
+        value = self.cleaned_data.get("general_ticket_limit")
+        sold_tickets = self._issued_tickets_count_for(EventTicketType.Code.GENERAL)
+        if value is not None and value < sold_tickets:
+            raise forms.ValidationError(
+                f"No puedes definir menos de {sold_tickets} entradas generales porque ya fueron emitidas."
+            )
+        return value
+
+    def clean(self):
+        cleaned_data = super().clean()
+        enable_vip = bool(cleaned_data.get("enable_vip"))
+        vip_price = cleaned_data.get("vip_price_usd")
+        vip_limit = cleaned_data.get("vip_ticket_limit")
+        vip_sold_tickets = self._issued_tickets_count_for(EventTicketType.Code.VIP)
+
+        if enable_vip:
+            if vip_price is None:
+                self.add_error("vip_price_usd", "Debes indicar el precio de la boleta VIP.")
+            if vip_limit in (None, ""):
+                self.add_error("vip_ticket_limit", "Debes indicar la cantidad de boletas VIP.")
+        else:
+            if vip_sold_tickets > 0:
+                self.add_error(
+                    "enable_vip",
+                    "No puedes desactivar VIP porque ya existen boletas VIP emitidas.",
+                )
+
+        if vip_limit not in (None, "") and vip_limit < vip_sold_tickets:
+            self.add_error(
+                "vip_ticket_limit",
+                f"No puedes definir menos de {vip_sold_tickets} entradas VIP porque ya fueron emitidas.",
+            )
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        event = super().save(commit=False)
+        event.unit_price_usd = self.cleaned_data["general_price_usd"]
+        event.ticket_limit = self.cleaned_data["general_ticket_limit"]
+        if commit:
+            event.save()
+            self._save_m2m()
+            self._save_ticket_types(event)
+        return event
+
+    def _save_ticket_types(self, event):
+        general_defaults = {
+            "name": "General",
+            "price_usd": self.cleaned_data["general_price_usd"],
+            "stock_total": self.cleaned_data["general_ticket_limit"],
+            "is_active": True,
+            "display_order": 1,
+            "number_prefix": "G",
+        }
+        EventTicketType.objects.update_or_create(
+            event=event,
+            code=EventTicketType.Code.GENERAL,
+            defaults=general_defaults,
+        )
+
+        vip_defaults = {
+            "name": "VIP",
+            "price_usd": self.cleaned_data.get("vip_price_usd") or self.cleaned_data["general_price_usd"],
+            "stock_total": self.cleaned_data.get("vip_ticket_limit") or 1,
+            "is_active": bool(self.cleaned_data.get("enable_vip")),
+            "display_order": 2,
+            "number_prefix": "VIP",
+        }
+        vip_type, vip_created = EventTicketType.objects.get_or_create(
+            event=event,
+            code=EventTicketType.Code.VIP,
+            defaults=vip_defaults,
+        )
+        if vip_created:
+            return
+        updated_fields = []
+        for field, value in vip_defaults.items():
+            if getattr(vip_type, field) != value:
+                setattr(vip_type, field, value)
+                updated_fields.append(field)
+        if updated_fields:
+            vip_type.save(update_fields=updated_fields)
+
+
+class EventCreateForm(EventTicketTypesFormMixin, forms.ModelForm):
     datetime = forms.DateTimeField(
         input_formats=["%Y-%m-%dT%H:%M"],
         widget=forms.DateTimeInput(format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local"}),
@@ -42,8 +185,6 @@ class EventCreateForm(forms.ModelForm):
             "title",
             "description",
             "location",
-            "unit_price_usd",
-            "ticket_limit",
             "age_rating",
             "datetime",
             "status",
@@ -52,8 +193,6 @@ class EventCreateForm(forms.ModelForm):
             "title": "Título",
             "description": "Descripción",
             "location": "Ubicación",
-            "unit_price_usd": "Precio por entrada QR (USD)",
-            "ticket_limit": "Cantidad de entradas QR disponibles",
             "age_rating": "Clasificación de edad",
             "datetime": "Fecha y hora de inicio",
             "status": "Estado",
@@ -65,22 +204,7 @@ class EventCreateForm(forms.ModelForm):
             return timezone.make_aware(value, timezone.get_current_timezone())
         return value
 
-    def clean_ticket_limit(self):
-        value = self.cleaned_data.get("ticket_limit")
-        if value:
-            return value
-        if self.instance and self.instance.pk and self.instance.ticket_limit:
-            return self.instance.ticket_limit
-        return 100
-
-
-class EventUpdateForm(forms.ModelForm):
-    ticket_limit = forms.IntegerField(
-        required=True,
-        min_value=1,
-        initial=100,
-        label="Cantidad de entradas QR disponibles",
-    )
+class EventUpdateForm(EventTicketTypesFormMixin, forms.ModelForm):
     datetime = forms.DateTimeField(
         input_formats=["%Y-%m-%dT%H:%M"],
         widget=forms.DateTimeInput(format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local"}),
@@ -115,8 +239,6 @@ class EventUpdateForm(forms.ModelForm):
             "location",
             "organizer",
             "category",
-            "unit_price_usd",
-            "ticket_limit",
             "age_rating",
             "datetime",
             "end_datetime",
@@ -128,8 +250,6 @@ class EventUpdateForm(forms.ModelForm):
             "location": "Ubicación",
             "organizer": "Organizador o productor",
             "category": "Categoría",
-            "unit_price_usd": "Precio por entrada QR (USD)",
-            "ticket_limit": "Cantidad de entradas QR disponibles",
             "age_rating": "Clasificación de edad",
             "datetime": "Fecha y hora de inicio",
             "end_datetime": "Fecha y hora de finalización",
@@ -155,15 +275,6 @@ class EventUpdateForm(forms.ModelForm):
 
         cleaned_data["end_datetime"] = end_at
         return cleaned_data
-
-    def clean_ticket_limit(self):
-        value = self.cleaned_data.get("ticket_limit")
-        if value:
-            return value
-        if self.instance and self.instance.pk and self.instance.ticket_limit:
-            return self.instance.ticket_limit
-        return 100
-
 
 class EventProposalForm(forms.ModelForm):
     ticket_limit = forms.IntegerField(

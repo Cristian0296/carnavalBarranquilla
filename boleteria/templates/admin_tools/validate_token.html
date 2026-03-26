@@ -22,6 +22,12 @@
           </div>
           {% if validation_info %}
             <div class="mt-4 rounded-2xl border border-[#1F5FBF]/10 bg-white/80 p-4 text-sm text-slate-700">
+              <p>
+                <strong>Tipo de entrada:</strong>
+                <span class="inline-flex rounded-full px-2 py-1 text-xs font-bold uppercase tracking-[0.18em] {% if validation_info.ticket_type_code == 'vip' %}bg-[#1A1A1F] text-[#F5D77E]{% else %}bg-[#EAF2FF] text-[#0D2A5C]{% endif %}">
+                  {{ validation_info.ticket_type_name }}
+                </span>
+              </p>
               <p><strong>Concierto:</strong> {{ validation_info.title }}</p>
               <p><strong>Estado:</strong>
                 {% if result == 'ok' %}
@@ -105,6 +111,10 @@
         <span id="scanner-modal-badge" class="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] bg-rose-100 text-rose-700">Invalida</span>
       </div>
       <div class="mt-4 rounded-2xl border border-[#1F5FBF]/10 bg-white/80 p-4 text-sm text-slate-700">
+        <p>
+          <strong>Tipo de entrada:</strong>
+          <span id="scanner-modal-type" class="inline-flex rounded-full px-2 py-1 text-xs font-bold uppercase tracking-[0.18em] bg-slate-100 text-slate-700">No disponible</span>
+        </p>
         <p><strong>Concierto:</strong> <span id="scanner-modal-event">No disponible</span></p>
         <p><strong>Estado:</strong> <span id="scanner-modal-status">Invalida</span></p>
         <p><strong>Numero QR:</strong> <span id="scanner-modal-ticket">No disponible</span></p>
@@ -132,13 +142,14 @@
       var scannerModal = document.getElementById("scanner-modal");
       var scannerModalTitle = document.getElementById("scanner-modal-title");
       var scannerModalBadge = document.getElementById("scanner-modal-badge");
+      var scannerModalType = document.getElementById("scanner-modal-type");
       var scannerModalEvent = document.getElementById("scanner-modal-event");
       var scannerModalStatus = document.getElementById("scanner-modal-status");
       var scannerModalTicket = document.getElementById("scanner-modal-ticket");
       var scannerModalMessage = document.getElementById("scanner-modal-message");
       var scannerModalAccept = document.getElementById("scanner-modal-accept");
       var scannerTechStatus = document.getElementById("scanner-tech-status");
-      if (!form || !tokenInput || !video || !cameraShell || !canvas || !startButton || !stopButton || !imageInput || !statusBox || !scannerModal || !scannerModalTitle || !scannerModalBadge || !scannerModalEvent || !scannerModalStatus || !scannerModalTicket || !scannerModalMessage || !scannerModalAccept || !scannerTechStatus) {
+      if (!form || !tokenInput || !video || !cameraShell || !canvas || !startButton || !stopButton || !imageInput || !statusBox || !scannerModal || !scannerModalTitle || !scannerModalBadge || !scannerModalType || !scannerModalEvent || !scannerModalStatus || !scannerModalTicket || !scannerModalMessage || !scannerModalAccept || !scannerTechStatus) {
         return;
       }
 
@@ -287,11 +298,18 @@
 
       function renderModal(payload) {
         var status = currentModalStatus(payload.result, payload.popup_message);
+        var ticketTypeCode = payload.validation_info && payload.validation_info.ticket_type_code ? payload.validation_info.ticket_type_code : "";
         scannerModalTitle.textContent = payload.popup_title || "Informacion de la boleta";
+        scannerModalType.textContent = payload.validation_info && payload.validation_info.ticket_type_name ? payload.validation_info.ticket_type_name : "No disponible";
         scannerModalEvent.textContent = payload.validation_info && payload.validation_info.title ? payload.validation_info.title : "No disponible";
         scannerModalStatus.textContent = status;
         scannerModalTicket.textContent = payload.validation_info && payload.validation_info.ticket_number ? payload.validation_info.ticket_number : "No disponible";
         scannerModalMessage.textContent = payload.popup_message || payload.message || "";
+        if (ticketTypeCode === "vip") {
+          scannerModalType.className = "inline-flex rounded-full px-2 py-1 text-xs font-bold uppercase tracking-[0.18em] bg-[#1A1A1F] text-[#F5D77E]";
+        } else {
+          scannerModalType.className = "inline-flex rounded-full px-2 py-1 text-xs font-bold uppercase tracking-[0.18em] bg-[#EAF2FF] text-[#0D2A5C]";
+        }
         if (status === "Valida") {
           scannerModalBadge.textContent = "Valida";
           scannerModalBadge.className = "rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] bg-emerald-100 text-emerald-800";
