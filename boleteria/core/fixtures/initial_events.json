@@ -1,0 +1,22 @@
+[
+  {
+    "model": "core.event",
+    "pk": 1,
+    "fields": {
+      "title": "Simulacro Tech Summit 2026",
+      "datetime": "2026-03-15T15:00:00Z",
+      "status": "ACTIVE",
+      "created_at": "2026-02-16T00:00:00Z"
+    }
+  },
+  {
+    "model": "core.event",
+    "pk": 2,
+    "fields": {
+      "title": "Simulacro Music Night 2026",
+      "datetime": "2026-04-20T01:00:00Z",
+      "status": "ACTIVE",
+      "created_at": "2026-02-16T00:00:00Z"
+    }
+  }
+]

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Participaciones de usuarios | Boletas QR{% endblock %}
+{% block content %}
+  <h1 class="text-[2rem] font-semibold text-white sm:text-3xl lg:text-4xl">
+    <span class="title-top !text-white" style="-webkit-text-stroke:1px #FF7A00; text-shadow:1px 1px 0 #FF7A00, -1px 1px 0 #FF7A00, 1px -1px 0 #FF7A00, -1px -1px 0 #FF7A00;">Participaciones compradas</span>
+    <span class="title-bottom !text-white" style="-webkit-text-stroke:1px #FF7A00; text-shadow:1px 1px 0 #FF7A00, -1px 1px 0 #FF7A00, 1px -1px 0 #FF7A00, -1px -1px 0 #FF7A00;">por usuarios</span>
+  </h1>
+
+  <form class="panel mt-4 p-5" method="get">
+    <div class="grid gap-4 md:grid-cols-2">
+      <p>
+        <label for="username">Buscar por usuario</label>
+        <input id="username" name="username" type="text" value="{{ username_query|default:'' }}" placeholder="usuario">
+      </p>
+      <p>
+        <label for="event_id">Filtrar por evento</label>
+        <select id="event_id" name="event_id">
+          <option value="">Todos</option>
+          {% for event in events %}
+            <option value="{{ event.id }}" {% if selected_event_id == event.id|stringformat:"s" %}selected{% endif %}>{{ event.title }}</option>
+          {% endfor %}
+        </select>
+      </p>
+    </div>
+    <button class="btn-primary mt-4" type="submit">Filtrar</button>
+  </form>
+
+  {% if selected_user %}
+    <p class="mt-4 text-sm text-slate-600">Usuario seleccionado: <strong>{{ selected_user.username }}</strong></p>
+  {% endif %}
+
+  {% if tickets %}
+    <div class="panel mt-4 overflow-x-auto">
+      <table class="min-w-full divide-y divide-slate-200">
+        <thead class="bg-slate-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Usuario</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Evento</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Estado</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Numero QR</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Emitido</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Acciones</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 bg-white">
+          {% for ticket in tickets %}
+            <tr>
+              <td class="px-4 py-3 break-words">{{ ticket.order.user.username }}</td>
+              <td class="px-4 py-3 break-words"><strong>{{ ticket.event.title }}</strong></td>
+              <td class="px-4 py-3">{{ ticket.get_status_display }}</td>
+              <td class="px-4 py-3">{{ ticket.raffle_number_display }}</td>
+              <td class="px-4 py-3">{{ ticket.issued_at }}</td>
+              <td class="px-4 py-3">
+                <div class="flex flex-wrap gap-2">
+                  <a class="btn-neutral px-3 py-2 text-sm !border-[#1F5FBF]/20 !bg-white !text-[#0D2A5C]" href="{% url 'user_ticket_qrs_by_user' ticket.order.user.id %}?next={{ current_url|urlencode }}">Ver QR</a>
+                  {% if not selected_user %}
+                    <a class="btn-neutral px-3 py-2 text-sm !border-[#1F5FBF]/20 !bg-white !text-[#0D2A5C]" href="{% url 'user_tickets_by_user' ticket.order.user.id %}">Ver usuario</a>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="panel-soft mt-4 p-4">No se encontraron participaciones.</p>
+  {% endif %}
+{% endblock %}

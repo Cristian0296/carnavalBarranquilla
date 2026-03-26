@@ -1,0 +1,590 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Validar boleta | Boletas QR{% endblock %}
+{% block content %}
+  <section class="panel mx-auto max-w-4xl p-6 sm:p-8">
+    <div class="rounded-[1.75rem] bg-[linear-gradient(135deg,#1F5FBF_0%,#3C86E8_58%,#7BC7FF_100%)] p-6 text-white shadow-glow">
+      <h1 class="text-[2rem] font-extrabold sm:text-3xl lg:text-4xl">
+        <span class="title-top !text-white" style="-webkit-text-stroke:1px #FF7A00; text-shadow:1px 1px 0 #FF7A00, -1px 1px 0 #FF7A00, 1px -1px 0 #FF7A00, -1px -1px 0 #FF7A00;">Validar</span>
+        <span class="title-bottom !font-display !text-white" style="-webkit-text-stroke:1px #FF7A00; text-shadow:1px 1px 0 #FF7A00, -1px 1px 0 #FF7A00, 1px -1px 0 #FF7A00, -1px -1px 0 #FF7A00;">entrada QR</span>
+      </h1>
+      <p class="mt-3 max-w-2xl text-blue-50">Valida por camara o subiendo una imagen del QR, pensado para una fila rapida y continua.</p>
+    </div>
+
+    {% if popup_message %}
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+        <div aria-labelledby="popup-title" aria-modal="true" role="dialog" class="w-full max-w-lg rounded-[1.5rem] border border-white/25 bg-[linear-gradient(135deg,rgba(255,248,232,0.99)_0%,rgba(255,255,255,0.96)_100%)] p-6 shadow-glow">
+          <div class="flex items-start justify-between gap-4">
+            <h2 id="popup-title" class="text-xl font-semibold text-brand-900">{{ popup_title|default:"Informacion de la boleta" }}</h2>
+            <span class="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] {% if result == 'ok' %}bg-emerald-100 text-emerald-800{% else %}bg-rose-100 text-rose-700{% endif %}">
+              {% if result == 'ok' %}Valida{% else %}Invalida{% endif %}
+            </span>
+          </div>
+          {% if validation_info %}
+            <div class="mt-4 rounded-2xl border border-[#1F5FBF]/10 bg-white/80 p-4 text-sm text-slate-700">
+              <p><strong>Concierto:</strong> {{ validation_info.title }}</p>
+              <p><strong>Estado:</strong>
+                {% if result == 'ok' %}
+                  Valida
+                {% elif "ya fue utilizada" in popup_message %}
+                  Ya usada
+                {% else %}
+                  Invalida
+                {% endif %}
+              </p>
+              <p><strong>Numero QR:</strong> {{ validation_info.ticket_number }}</p>
+            </div>
+          {% else %}
+            <div class="mt-4 rounded-2xl border border-[#1F5FBF]/10 bg-white/80 p-4 text-sm text-slate-700">
+              <p><strong>Estado:</strong> Invalida</p>
+            </div>
+          {% endif %}
+          <p class="mt-4 text-base text-slate-700">{{ popup_message }}</p>
+          <div class="mt-5 flex justify-end">
+            <a class="btn-primary" href="{% url 'validate_token' %}">Aceptar</a>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="mt-6">
+      <section class="panel-soft p-5">
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-2xl font-semibold text-brand-900 sm:text-3xl">Escanear QR</h2>
+          <span id="scanner-tech-status" class="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800">Lector listo</span>
+        </div>
+        <p class="mt-2 text-sm text-slate-600">Usa la camara del dispositivo o sube una imagen donde se vea claramente el codigo para validar la boleta.</p>
+
+        <div class="mt-4 grid gap-3 md:grid-cols-3">
+          <div class="rounded-2xl border border-[#1F5FBF]/10 bg-[#EEF6FF] px-4 py-3 text-sm text-slate-700">
+            <p class="font-semibold text-[#0D2A5C]">Para dispositivo movil</p>
+            <p class="mt-1">Permite la camara cuando el navegador lo pida y usa el dispositivo en posicion vertical.</p>
+          </div>
+          <div class="rounded-2xl border border-[#1F5FBF]/10 bg-[#EEF6FF] px-4 py-3 text-sm text-slate-700">
+            <p class="font-semibold text-[#0D2A5C]">Mejor lectura</p>
+            <p class="mt-1">Sube el brillo del QR, evita reflejos y centra el codigo dentro del recuadro.</p>
+          </div>
+          <div class="rounded-2xl border border-[#1F5FBF]/10 bg-[#EEF6FF] px-4 py-3 text-sm text-slate-700">
+            <p class="font-semibold text-[#0D2A5C]">Si falla</p>
+            <p class="mt-1">Usa <strong>Cargar imagen</strong> como respaldo con una foto nitida del QR.</p>
+          </div>
+        </div>
+
+        <div id="camera-shell" class="mt-4 hidden overflow-hidden rounded-[1.5rem] border border-[#1F5FBF]/15 bg-slate-950">
+          <div class="relative">
+            <video id="qr-video" class="aspect-[4/3] w-full object-cover" autoplay playsinline muted></video>
+            <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div class="h-[58%] w-[68%] rounded-[1.25rem] border-2 border-white/80 shadow-[0_0_0_999px_rgba(2,6,23,0.22)]"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 flex flex-wrap gap-3">
+          <button class="btn-primary" id="start-camera" type="button">Abrir camara</button>
+          <button class="btn-neutral hidden !border-[#1F5FBF]/20 !bg-white !text-[#0D2A5C]" id="stop-camera" type="button">Detener camara</button>
+          <label class="inline-flex cursor-pointer items-center rounded-full border border-[#1F5FBF]/20 bg-white px-4 py-3 text-sm font-semibold text-[#0D2A5C] shadow-soft hover:bg-[#EEF6FF]">
+            Cargar imagen
+            <input class="hidden" id="qr-image-input" type="file" accept="image/*" capture="environment">
+          </label>
+        </div>
+
+        <p id="scanner-status" class="mt-4 rounded-2xl bg-[#EEF6FF] px-4 py-3 text-sm text-slate-700">Prepara el QR frente a la camara o selecciona una imagen para leerlo.</p>
+        <form class="mt-4" id="validate-form" method="post">
+          {% csrf_token %}
+          <textarea class="hidden" id="id_token" name="token" rows="5">{{ request.POST.token|default:'' }}</textarea>
+        </form>
+        <canvas id="qr-canvas" class="hidden"></canvas>
+
+      </section>
+    </div>
+  </section>
+  <div id="scanner-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4">
+    <div class="w-full max-w-lg rounded-[1.5rem] border border-white/25 bg-[linear-gradient(135deg,rgba(255,248,232,0.99)_0%,rgba(255,255,255,0.96)_100%)] p-6 shadow-glow">
+      <div class="flex items-start justify-between gap-4">
+        <h2 id="scanner-modal-title" class="text-xl font-semibold text-brand-900">Informacion de la boleta</h2>
+        <span id="scanner-modal-badge" class="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] bg-rose-100 text-rose-700">Invalida</span>
+      </div>
+      <div class="mt-4 rounded-2xl border border-[#1F5FBF]/10 bg-white/80 p-4 text-sm text-slate-700">
+        <p><strong>Concierto:</strong> <span id="scanner-modal-event">No disponible</span></p>
+        <p><strong>Estado:</strong> <span id="scanner-modal-status">Invalida</span></p>
+        <p><strong>Numero QR:</strong> <span id="scanner-modal-ticket">No disponible</span></p>
+      </div>
+      <p id="scanner-modal-message" class="mt-4 text-base text-slate-700"></p>
+      <div class="mt-5 flex justify-end">
+        <button class="btn-primary" id="scanner-modal-accept" type="button">Aceptar</button>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script src="{% static 'vendor/jsQR.js' %}"></script>
+  <script>
+    (function () {
+      var form = document.getElementById("validate-form");
+      var tokenInput = document.getElementById("id_token");
+      var video = document.getElementById("qr-video");
+      var cameraShell = document.getElementById("camera-shell");
+      var canvas = document.getElementById("qr-canvas");
+      var startButton = document.getElementById("start-camera");
+      var stopButton = document.getElementById("stop-camera");
+      var imageInput = document.getElementById("qr-image-input");
+      var statusBox = document.getElementById("scanner-status");
+      var scannerModal = document.getElementById("scanner-modal");
+      var scannerModalTitle = document.getElementById("scanner-modal-title");
+      var scannerModalBadge = document.getElementById("scanner-modal-badge");
+      var scannerModalEvent = document.getElementById("scanner-modal-event");
+      var scannerModalStatus = document.getElementById("scanner-modal-status");
+      var scannerModalTicket = document.getElementById("scanner-modal-ticket");
+      var scannerModalMessage = document.getElementById("scanner-modal-message");
+      var scannerModalAccept = document.getElementById("scanner-modal-accept");
+      var scannerTechStatus = document.getElementById("scanner-tech-status");
+      if (!form || !tokenInput || !video || !cameraShell || !canvas || !startButton || !stopButton || !imageInput || !statusBox || !scannerModal || !scannerModalTitle || !scannerModalBadge || !scannerModalEvent || !scannerModalStatus || !scannerModalTicket || !scannerModalMessage || !scannerModalAccept || !scannerTechStatus) {
+        return;
+      }
+
+      var stream = null;
+      var rafId = 0;
+      var barcodeDetector = null;
+      var isScanning = false;
+      var isCameraRunning = false;
+      var isBusy = false;
+      var isModalOpen = false;
+      var lastSubmittedToken = "";
+      var lastSubmittedAt = 0;
+      var duplicateCooldownMs = 4000;
+      video.setAttribute("playsinline", "true");
+      video.setAttribute("webkit-playsinline", "true");
+      video.muted = true;
+
+      if ("BarcodeDetector" in window) {
+        try {
+          barcodeDetector = new window.BarcodeDetector({ formats: ["qr_code"] });
+        } catch (error) {
+        }
+      }
+      scannerTechStatus.textContent = window.jsQR ? "Lector listo" : "Lector limitado";
+      if (!window.jsQR) {
+        scannerTechStatus.className = "rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800";
+      }
+
+      function setStatus(message, tone) {
+        statusBox.textContent = message;
+        statusBox.className = "mt-4 rounded-2xl px-4 py-3 text-sm";
+        if (tone === "error") {
+          statusBox.className += " bg-rose-50 text-rose-700";
+          return;
+        }
+        if (tone === "success") {
+          statusBox.className += " bg-emerald-50 text-emerald-800";
+          return;
+        }
+        statusBox.className += " bg-[#EEF6FF] text-slate-700";
+      }
+
+      function stopCamera() {
+        isScanning = false;
+        isCameraRunning = false;
+        if (rafId) {
+          window.cancelAnimationFrame(rafId);
+          rafId = 0;
+        }
+        if (stream) {
+          stream.getTracks().forEach(function (track) {
+            track.stop();
+          });
+          stream = null;
+        }
+        video.srcObject = null;
+        cameraShell.classList.add("hidden");
+        startButton.classList.remove("hidden");
+        stopButton.classList.add("hidden");
+        scannerTechStatus.textContent = window.jsQR ? "Lector listo" : "Lector limitado";
+        scannerTechStatus.className = window.jsQR
+          ? "rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800"
+          : "rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800";
+      }
+
+      function shouldSkipDuplicate(token) {
+        var now = Date.now();
+        if (token === lastSubmittedToken && now - lastSubmittedAt < duplicateCooldownMs) {
+          return true;
+        }
+        lastSubmittedToken = token;
+        lastSubmittedAt = now;
+        return false;
+      }
+
+      function resetCanvasSize(width, height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+
+      function copyImageToCanvas(imageSource, width, height) {
+        var context = canvas.getContext("2d", { willReadFrequently: true });
+        resetCanvasSize(width, height);
+        context.clearRect(0, 0, width, height);
+        context.drawImage(imageSource, 0, 0, width, height);
+      }
+
+      function decodeWithJsQr(width, height) {
+        if (!window.jsQR || !width || !height) {
+          return "";
+        }
+        var context = canvas.getContext("2d", { willReadFrequently: true });
+        var imageData = context.getImageData(0, 0, width, height);
+        var decoded = window.jsQR(imageData.data, width, height, { inversionAttempts: "attemptBoth" });
+        if (decoded && decoded.data) {
+          return decoded.data;
+        }
+
+        var enhanced = new Uint8ClampedArray(imageData.data.length);
+        for (var i = 0; i < imageData.data.length; i += 4) {
+          var gray = Math.round(
+            imageData.data[i] * 0.299 +
+            imageData.data[i + 1] * 0.587 +
+            imageData.data[i + 2] * 0.114
+          );
+          var boosted = gray > 140 ? 255 : 0;
+          enhanced[i] = boosted;
+          enhanced[i + 1] = boosted;
+          enhanced[i + 2] = boosted;
+          enhanced[i + 3] = 255;
+        }
+
+        decoded = window.jsQR(enhanced, width, height, { inversionAttempts: "attemptBoth" });
+        if (decoded && decoded.data) {
+          return decoded.data;
+        }
+
+        if (width < 420 || height < 420) {
+          var scaledWidth = width * 2;
+          var scaledHeight = height * 2;
+          var tempCanvas = document.createElement("canvas");
+          tempCanvas.width = scaledWidth;
+          tempCanvas.height = scaledHeight;
+          var tempContext = tempCanvas.getContext("2d", { willReadFrequently: true });
+          tempContext.imageSmoothingEnabled = false;
+          tempContext.drawImage(canvas, 0, 0, scaledWidth, scaledHeight);
+          var scaledImage = tempContext.getImageData(0, 0, scaledWidth, scaledHeight);
+          decoded = window.jsQR(scaledImage.data, scaledWidth, scaledHeight, { inversionAttempts: "attemptBoth" });
+          if (decoded && decoded.data) {
+            return decoded.data;
+          }
+        }
+
+        return "";
+      }
+
+      function currentModalStatus(result, message) {
+        if (result === "ok") {
+          return "Valida";
+        }
+        if ((message || "").toLowerCase().indexOf("ya fue utilizada") !== -1) {
+          return "Ya usada";
+        }
+        return "Invalida";
+      }
+
+      function renderModal(payload) {
+        var status = currentModalStatus(payload.result, payload.popup_message);
+        scannerModalTitle.textContent = payload.popup_title || "Informacion de la boleta";
+        scannerModalEvent.textContent = payload.validation_info && payload.validation_info.title ? payload.validation_info.title : "No disponible";
+        scannerModalStatus.textContent = status;
+        scannerModalTicket.textContent = payload.validation_info && payload.validation_info.ticket_number ? payload.validation_info.ticket_number : "No disponible";
+        scannerModalMessage.textContent = payload.popup_message || payload.message || "";
+        if (status === "Valida") {
+          scannerModalBadge.textContent = "Valida";
+          scannerModalBadge.className = "rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] bg-emerald-100 text-emerald-800";
+        } else if (status === "Ya usada") {
+          scannerModalBadge.textContent = "Ya usada";
+          scannerModalBadge.className = "rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] bg-amber-100 text-amber-800";
+        } else {
+          scannerModalBadge.textContent = "Invalida";
+          scannerModalBadge.className = "rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] bg-rose-100 text-rose-700";
+        }
+        scannerModal.classList.remove("hidden");
+        scannerModal.classList.add("flex");
+        isModalOpen = true;
+      }
+
+      function closeModal() {
+        scannerModal.classList.add("hidden");
+        scannerModal.classList.remove("flex");
+        isModalOpen = false;
+        if (isCameraRunning) {
+          isScanning = true;
+          if (!rafId) {
+            rafId = window.requestAnimationFrame(scanVideoFrame);
+          }
+          setStatus("Camara activa. Acerca el siguiente QR al recuadro para validarlo.", "info");
+        }
+      }
+
+      async function submitToken(token, sourceLabel) {
+        var normalized = (token || "").trim();
+        if (!normalized) {
+          setStatus("No se detecto un token valido en el " + sourceLabel + ".", "error");
+          return;
+        }
+        if (isBusy || isModalOpen) {
+          return;
+        }
+        if (shouldSkipDuplicate(normalized)) {
+          if (isCameraRunning) {
+            setStatus("Esperando un QR diferente para continuar.", "info");
+          }
+          return;
+        }
+        tokenInput.value = normalized;
+        isBusy = true;
+        isScanning = false;
+        if (rafId) {
+          window.cancelAnimationFrame(rafId);
+          rafId = 0;
+        }
+        setStatus("QR detectado desde " + sourceLabel + ". Validando boleta...", "success");
+        try {
+          var formData = new FormData(form);
+          formData.set("token", normalized);
+          var response = await fetch(form.action || window.location.href, {
+            method: "POST",
+            body: formData,
+            headers: {
+              "X-Requested-With": "XMLHttpRequest"
+            },
+            credentials: "same-origin"
+          });
+          if (!response.ok) {
+            throw new Error("bad_response");
+          }
+          var payload = await response.json();
+          renderModal(payload);
+        } catch (error) {
+          setStatus("No se pudo validar la boleta en este momento.", "error");
+          if (isCameraRunning) {
+            isScanning = true;
+            rafId = window.requestAnimationFrame(scanVideoFrame);
+          }
+        } finally {
+          isBusy = false;
+        }
+      }
+
+      async function detectFromSource(source, sourceLabel) {
+        if (barcodeDetector) {
+          try {
+            var barcodes = await barcodeDetector.detect(source);
+            if (barcodes && barcodes.length) {
+              await submitToken(barcodes[0].rawValue, sourceLabel);
+              return true;
+            }
+          } catch (error) {
+          }
+        }
+
+        try {
+          var width = 0;
+          var height = 0;
+
+          if (source === video) {
+            width = video.videoWidth || video.clientWidth;
+            height = video.videoHeight || video.clientHeight;
+          } else {
+            width = source.width || source.naturalWidth || source.videoWidth || 0;
+            height = source.height || source.naturalHeight || source.videoHeight || 0;
+          }
+
+          if (!width || !height) {
+            return false;
+          }
+
+          if (source !== canvas) {
+            copyImageToCanvas(source, width, height);
+          }
+
+          var decodedToken = decodeWithJsQr(width, height);
+          if (decodedToken) {
+            await submitToken(decodedToken, sourceLabel);
+            return true;
+          }
+        } catch (error) {
+          setStatus("No se pudo leer el QR desde el " + sourceLabel + ".", "error");
+          return false;
+        }
+
+        setStatus("No se encontro un codigo QR en el " + sourceLabel + ".", "error");
+        return false;
+      }
+
+      async function detectFromImageFile(file) {
+        if (!barcodeDetector && !window.jsQR) {
+          setStatus("Este navegador no tiene lector QR disponible en este momento.", "error");
+          return false;
+        }
+
+        async function tryWithImageBitmap() {
+          if (!window.createImageBitmap) {
+            return false;
+          }
+          var imageBitmap = await createImageBitmap(file);
+          copyImageToCanvas(imageBitmap, imageBitmap.width, imageBitmap.height);
+          var found = await detectFromSource(canvas, "la imagen");
+          imageBitmap.close();
+          return found;
+        }
+
+        async function tryWithImageElement() {
+          return await new Promise(function (resolve) {
+            var fileReader = new FileReader();
+            fileReader.onerror = function () {
+              resolve(false);
+            };
+            fileReader.onload = function () {
+              var img = new Image();
+              img.onload = async function () {
+                copyImageToCanvas(img, img.naturalWidth || img.width, img.naturalHeight || img.height);
+                var found = await detectFromSource(canvas, "la imagen");
+                resolve(found);
+              };
+              img.onerror = function () {
+                resolve(false);
+              };
+              img.src = fileReader.result;
+            };
+            fileReader.readAsDataURL(file);
+          });
+        }
+
+        try {
+          var found = await tryWithImageBitmap();
+          if (found) {
+            return true;
+          }
+          return await tryWithImageElement();
+        } catch (error) {
+          try {
+            return await tryWithImageElement();
+          } catch (fallbackError) {
+            setStatus("No se pudo procesar la imagen seleccionada.", "error");
+            return false;
+          }
+        }
+      }
+
+      async function openCameraStream() {
+        var attempts = [
+          { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+          { video: { facingMode: "environment" }, audio: false },
+          { video: true, audio: false }
+        ];
+        var lastError = null;
+        for (var i = 0; i < attempts.length; i += 1) {
+          try {
+            return await navigator.mediaDevices.getUserMedia(attempts[i]);
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        throw lastError || new Error("camera_unavailable");
+      }
+
+      async function scanVideoFrame() {
+        if (!isCameraRunning) {
+          rafId = 0;
+          return;
+        }
+        if (!isScanning || isBusy || isModalOpen || video.readyState < 2) {
+          rafId = window.requestAnimationFrame(scanVideoFrame);
+          return;
+        }
+        try {
+          var found = await detectFromSource(video, "la camara");
+          if (!found && isScanning && isCameraRunning && !isModalOpen) {
+            rafId = window.requestAnimationFrame(scanVideoFrame);
+          } else if (!isCameraRunning || isModalOpen || isBusy) {
+            rafId = 0;
+          }
+        } catch (error) {
+          if (isScanning && isCameraRunning) {
+            rafId = window.requestAnimationFrame(scanVideoFrame);
+          } else {
+            rafId = 0;
+          }
+        }
+      }
+
+      startButton.addEventListener("click", async function () {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setStatus("Este dispositivo no permite abrir la camara. Usa una imagen para validar.", "error");
+          return;
+        }
+        try {
+          stopCamera();
+          cameraShell.classList.remove("hidden");
+          startButton.classList.add("hidden");
+          scannerTechStatus.textContent = "Abriendo camara";
+          scannerTechStatus.className = "rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800";
+          stream = await openCameraStream();
+          video.srcObject = stream;
+          await video.play();
+          isScanning = true;
+          isCameraRunning = true;
+          stopButton.classList.remove("hidden");
+          scannerTechStatus.textContent = "Camara activa";
+          scannerTechStatus.className = "rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800";
+          setStatus("Camara activa. Acerca el QR al recuadro para validarlo.", "info");
+          rafId = window.requestAnimationFrame(scanVideoFrame);
+        } catch (error) {
+          cameraShell.classList.add("hidden");
+          startButton.classList.remove("hidden");
+          stopButton.classList.add("hidden");
+          scannerTechStatus.textContent = "Camara no disponible";
+          scannerTechStatus.className = "rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700";
+          setStatus("No se pudo abrir la camara. Revisa permisos o usa una imagen.", "error");
+        }
+      });
+
+      stopButton.addEventListener("click", function () {
+        stopCamera();
+        setStatus("Camara detenida. Puedes volver a abrirla o cargar una imagen.", "info");
+      });
+
+      scannerModalAccept.addEventListener("click", function () {
+        closeModal();
+      });
+
+      scannerModal.addEventListener("click", function (event) {
+        if (event.target === scannerModal) {
+          closeModal();
+        }
+      });
+
+      imageInput.addEventListener("change", async function (event) {
+        var file = event.target.files && event.target.files[0];
+        if (!file) {
+          return;
+        }
+        if (isBusy || isModalOpen) {
+          event.target.value = "";
+          return;
+        }
+        stopCamera();
+        scannerTechStatus.textContent = "Leyendo imagen";
+        scannerTechStatus.className = "rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800";
+        setStatus("Procesando imagen del QR...", "info");
+        var found = await detectFromImageFile(file);
+        if (!found) {
+          scannerTechStatus.textContent = "Imagen sin lectura";
+          scannerTechStatus.className = "rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700";
+          setStatus("No se pudo detectar un QR en la imagen seleccionada.", "error");
+        } else {
+          scannerTechStatus.textContent = "Lector listo";
+          scannerTechStatus.className = "rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800";
+        }
+        event.target.value = "";
+      });
+
+      window.addEventListener("beforeunload", stopCamera);
+    })();
+  </script>
+{% endblock %}

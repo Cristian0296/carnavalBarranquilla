@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Gestión de usuarios | Boletas QR{% endblock %}
+{% block content %}
+  <section class="panel p-6">
+    <h1 class="text-[2rem] font-extrabold sm:text-3xl lg:text-4xl">
+      <span class="title-top">Usuarios</span>
+      <span class="title-bottom">registrados</span>
+    </h1>
+    {% if users %}
+      <div class="mt-5 overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Usuario</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Correo</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Nombre visible</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 bg-white">
+            {% for user_obj in users %}
+              <tr>
+                <td class="px-4 py-3">{{ user_obj.username }}</td>
+                <td class="px-4 py-3">{{ user_obj.email }}</td>
+                <td class="px-4 py-3">{{ user_obj.profile.display_name|default:"-" }}</td>
+                <td class="px-4 py-3">
+                  <a class="link-primary text-sm" href="{% url 'user_ticket_qrs_by_user' user_obj.id %}">Ver QR</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-slate-600">No hay usuarios registrados.</p>
+    {% endif %}
+  </section>
+{% endblock %}

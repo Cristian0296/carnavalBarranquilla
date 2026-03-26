@@ -1,0 +1,697 @@
+﻿{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Boletas QR{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chewy&family=Gochi+Hand&family=Montserrat:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            festival: {
+              night: "#0D2A5C",
+              ocean: "#1F5FBF",
+              gold: "#F5C518",
+              red: "#E53935",
+              orange: "#FF7A00",
+              green: "#2ECC71",
+              sky: "#00AEEF",
+              cream: "#FFF8E8"
+            },
+            brand: {
+              50: "#eef4ff",
+              100: "#d9e6ff",
+              500: "#1F5FBF",
+              700: "#0D2A5C",
+              900: "#081A38"
+            }
+          },
+          backgroundImage: {
+            "festival-radial": "radial-gradient(circle at top left, rgba(245, 197, 24, 0.28), transparent 34%), radial-gradient(circle at top right, rgba(0, 174, 239, 0.24), transparent 30%), linear-gradient(135deg, #0D2A5C 0%, #123a7a 50%, #1F5FBF 100%)"
+          },
+          fontFamily: {
+            display: ["Chewy", "cursive"],
+            body: ["Source Sans 3", "sans-serif"]
+          },
+          boxShadow: {
+            soft: "0 10px 30px rgba(19, 43, 107, 0.14)",
+            glow: "0 22px 60px rgba(13, 42, 92, 0.28)",
+            carnival: "0 18px 40px rgba(229, 57, 53, 0.18)"
+          },
+          borderRadius: {
+            "4xl": "2rem"
+          },
+          keyframes: {
+            floaty: {
+              "0%, 100%": { transform: "translateY(0px)" },
+              "50%": { transform: "translateY(-6px)" }
+            }
+          },
+          animation: {
+            floaty: "floaty 6s ease-in-out infinite"
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root {
+      accent-color: #E53935;
+      --festival-night: #0D2A5C;
+      --festival-ocean: #1F5FBF;
+      --festival-gold: #F5C518;
+      --festival-red: #E53935;
+      --festival-orange: #FF7A00;
+      --festival-green: #2ECC71;
+      --festival-sky: #00AEEF;
+      --festival-cream: #FFF8E8;
+    }
+    html {
+      font-size: 16px;
+      background: var(--festival-night);
+    }
+    body {
+      font-family: "Source Sans 3", sans-serif;
+      background:
+        radial-gradient(circle at 12% 14%, rgba(255, 255, 255, 0.3), transparent 18%),
+        radial-gradient(circle at 88% 18%, rgba(0, 174, 239, 0.2), transparent 24%),
+        radial-gradient(circle at 52% 82%, rgba(31, 95, 191, 0.12), transparent 24%),
+        linear-gradient(180deg, #1F5FBF 0%, #4C8EE8 42%, #8FD3FF 76%, #DDF4FF 100%);
+      color: #0f172a;
+    }
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      font-family: "Chewy", cursive;
+      font-weight: 400;
+      font-style: normal;
+    }
+    .font-gochi-hand {
+      font-family: "Gochi Hand", cursive;
+      font-weight: 400;
+      font-style: normal;
+    }
+    .title-top {
+      display: block;
+      color: #0D2A5C !important;
+    }
+    .title-bottom {
+      display: block;
+      color: #FF7A00 !important;
+      font-family: "Gochi Hand", cursive !important;
+      font-weight: 400;
+      font-style: normal;
+    }
+    .btn-primary,
+    .btn-danger,
+    .btn-neutral,
+    header nav a,
+    header nav summary {
+      font-family: "Montserrat", sans-serif;
+    }
+    .skip-link {
+      position: absolute;
+      left: 0.75rem;
+      top: -100px;
+      background: var(--festival-red);
+      color: #fff;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.5rem;
+      z-index: 60;
+      font-weight: 600;
+    }
+    .skip-link:focus {
+      top: 0.75rem;
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+    }
+    form p {
+      margin-top: 0.75rem;
+    }
+    form label {
+      display: block;
+      margin-bottom: 0.35rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #10284d;
+    }
+    form input[type="text"],
+    form input[type="email"],
+    form input[type="password"],
+    form input[type="number"],
+    form input[type="datetime-local"],
+    form input[type="file"],
+    form textarea,
+    form select {
+      width: 100%;
+      border: 1px solid rgba(31, 95, 191, 0.2);
+      border-radius: 0.9rem;
+      padding: 0.7rem 0.95rem;
+      font-size: 0.95rem;
+      background: rgba(255, 255, 255, 0.95);
+      color: #0f172a;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+    form input::placeholder,
+    form textarea::placeholder {
+      color: #64748b;
+    }
+    form select option:checked {
+      background: #E53935 !important;
+      color: #fff !important;
+    }
+    form select option:hover,
+    form select option:focus {
+      background: #E53935 !important;
+      color: #fff !important;
+    }
+    form input:focus,
+    form textarea:focus,
+    form select:focus {
+      outline: 3px solid rgba(245, 197, 24, 0.85);
+      outline-offset: 1px;
+      border-color: #E53935;
+    }
+    a:focus-visible,
+    button:focus-visible {
+      outline: 3px solid #F5C518;
+      outline-offset: 2px;
+    }
+    .errorlist {
+      margin-top: 0.35rem;
+      list-style: none;
+      padding-left: 0;
+      color: #b91c1c;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .btn-primary,
+    .btn-danger,
+    .btn-neutral {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.8rem 1.4rem;
+      font-size: 0.92rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      text-align: center;
+      box-shadow: 0 12px 24px rgba(13, 42, 92, 0.14);
+    }
+    button,
+    .btn-primary,
+    .btn-danger,
+    .btn-neutral {
+      transition: transform 0.15s ease-out, background-color 0.15s ease-out, box-shadow 0.15s ease-out;
+    }
+    button:hover,
+    .btn-primary:hover,
+    .btn-danger:hover,
+    .btn-neutral:hover {
+      transform: scale(1.06);
+    }
+    button:active,
+    .btn-primary:active,
+    .btn-danger:active,
+    .btn-neutral:active {
+      transform: scale(0.98);
+    }
+    header nav a,
+    header nav summary {
+      transition: transform 0.15s ease-out, background-color 0.15s ease-out, box-shadow 0.15s ease-out;
+      color: #FFFFFF;
+    }
+    header nav a:hover,
+    header nav summary:hover {
+      transform: scale(1.06);
+      background: #E66F00 !important;
+      border-color: #E66F00 !important;
+      color: #FFFFFF !important;
+    }
+    header nav a[aria-current="page"] {
+      background: #F5C518 !important;
+      border-color: #F5C518 !important;
+      color: #0D2A5C !important;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #E53935 0%, #FF7A00 100%);
+      color: #fff !important;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 16px 30px rgba(229, 57, 53, 0.28);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #cf2926 0%, #f26c00 100%);
+    }
+    .btn-danger {
+      background: #dc2626;
+      color: #fff !important;
+    }
+    .btn-danger:hover {
+      background: #b91c1c;
+    }
+    .btn-neutral {
+      border: 1px solid rgba(255, 255, 255, 0.34);
+      background: rgba(255, 248, 232, 0.12);
+      color: #fff !important;
+      backdrop-filter: blur(10px);
+    }
+    .btn-neutral:hover {
+      background: rgba(245, 197, 24, 0.18);
+    }
+    button {
+      color: #0f172a;
+    }
+    a[class*="bg-white"] {
+      color: #0f172a;
+    }
+    .link-primary {
+      color: #1f49b6;
+      text-decoration: none;
+    }
+    .link-primary:hover {
+      text-decoration: underline;
+    }
+    .panel {
+      border-radius: 1.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(255, 248, 232, 0.96);
+      box-shadow: 0 18px 50px rgba(8, 26, 56, 0.2);
+    }
+    .panel-soft {
+      border-radius: 1.5rem;
+      border: 1px solid rgba(31, 95, 191, 0.16);
+      background: rgba(255, 255, 255, 0.96);
+    }
+    main h1,
+    main h2,
+    main h3 {
+      color: #0D2A5C !important;
+    }
+    main,
+    main p,
+    main span,
+    main li,
+    main td,
+    main th,
+    main label,
+    main small,
+    main em,
+    main strong,
+    main a,
+    main div {
+      color: #000 !important;
+    }
+    main .bg-white {
+      color: #0f172a;
+    }
+    .event-card-content,
+    .event-card-content h2,
+    .event-card-content p,
+    .event-card-content span,
+    .event-card-content a {
+      color: #fff !important;
+    }
+    .menu-tile {
+      border: 1px solid rgba(31, 95, 191, 0.14);
+      border-radius: 1rem;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 248, 232, 0.92) 100%);
+      padding: 0.9rem 1rem;
+      color: #0f172a;
+      box-shadow: 0 12px 24px rgba(13, 42, 92, 0.08);
+    }
+    .menu-tile:hover {
+      background: linear-gradient(180deg, rgba(255, 122, 0, 0.14) 0%, rgba(245, 197, 24, 0.18) 100%);
+      color: #0D2A5C;
+    }
+    .home-orange-hover:hover {
+      background: #E53935 !important;
+      border-color: #E53935 !important;
+      color: #fff !important;
+    }
+    .home-cta:hover {
+      background: #2ECC71 !important;
+      background-image: none !important;
+      border-color: #2ECC71 !important;
+      color: #FFFFFF !important;
+    }
+    .home-auth-btn:hover {
+      background: #2ECC71 !important;
+      background-image: none !important;
+      border-color: #2ECC71 !important;
+      color: #FFFFFF !important;
+    }
+    .green-hover:hover,
+    .btn-primary.green-hover:hover,
+    .btn-neutral.green-hover:hover,
+    button.green-hover:hover,
+    a.green-hover:hover {
+      background: #2ECC71 !important;
+      background-image: none !important;
+      border-color: #2ECC71 !important;
+      color: #FFFFFF !important;
+    }
+    .marimonda-card,
+    .marimonda-card img,
+    .marimonda-card::after {
+      transition: transform 0.32s ease, box-shadow 0.32s ease, filter 0.32s ease, opacity 0.32s ease;
+    }
+    .marimonda-card {
+      position: relative;
+    }
+    .marimonda-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(245, 197, 24, 0.22) 0%, rgba(255, 122, 0, 0.3) 58%, rgba(229, 57, 53, 0.18) 100%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .marimonda-card:hover {
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: 0 24px 44px rgba(255, 122, 0, 0.28);
+      border-color: rgba(245, 197, 24, 0.9) !important;
+    }
+    .marimonda-card:hover::after {
+      opacity: 1;
+    }
+    .marimonda-card:hover img {
+      transform: scale(1.05);
+      filter: saturate(1.18) contrast(1.06) brightness(1.03);
+    }
+    .navbar-logo,
+    .navbar-logo img {
+      transition: transform 0.28s ease, box-shadow 0.28s ease;
+    }
+    .navbar-logo:hover {
+      transform: scale(1.08);
+      box-shadow: 0 22px 44px rgba(13, 42, 92, 0.28);
+    }
+    .navbar-logo:hover img {
+      transform: scale(1.08);
+    }
+    .hover-grow-strong:hover {
+      transform: scale(1.12) !important;
+    }
+    .goog-te-banner-frame.skiptranslate {
+      display: none !important;
+    }
+    body {
+      top: 0 !important;
+    }
+    .goog-logo-link,
+    .goog-te-gadget span {
+      display: none !important;
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+  <a class="skip-link" href="#contenido-principal">Saltar al contenido principal</a>
+  <header class="relative z-50 border-b border-[#F5C518] bg-[linear-gradient(135deg,#081A38_0%,#0D2A5C_42%,#1F5FBF_100%)] backdrop-blur-xl">
+    <div class="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[#F5C518] opacity-100"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_left,_rgba(245,197,24,0.18),_transparent_24%),radial-gradient(circle_at_right,_rgba(0,174,239,0.16),_transparent_22%)] opacity-90"></div>
+    <div class="relative mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 py-4 sm:flex-row sm:justify-between">
+      <a href="{% url 'home' %}" class="navbar-logo inline-flex items-center rounded-full border border-white/10 bg-white/10 px-4 py-3 shadow-glow backdrop-blur-md">
+        <img class="h-14 w-auto origin-left scale-[2.7] transform sm:h-16 sm:scale-[2.85]" src="{% static 'imagenes/BoletasQR_20260317.png' %}" alt="BoletasQR">
+      </a>
+      <nav aria-label="Navegación principal" class="flex w-full flex-wrap items-center justify-center gap-2 text-sm sm:w-auto sm:justify-end sm:text-base">
+        <a href="{% url 'home' %}" {% if request.resolver_match.url_name == 'home' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">Inicio</a>
+        <a href="{% url 'rules_page' %}" {% if request.resolver_match.url_name == 'rules_page' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">Cómo participar</a>
+        <a href="{% url 'about_page' %}" {% if request.resolver_match.url_name == 'about_page' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">Nosotros</a>
+        {% if user.is_authenticated and user.is_staff %}
+          <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">Eventos</a>
+          <a id="notifications-link" href="{% url 'notifications_list' %}" {% if request.resolver_match.url_name == 'notifications_list' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FFFFFF;border-color:rgba(255,255,255,0.7);color:#E53935;">
+            <span id="notifications-bell" class="inline-flex items-center gap-1 text-red-600">
+              <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 2a5 5 0 0 0-5 5v2.3c0 .9-.3 1.8-.9 2.5l-.9 1.1A1 1 0 0 0 4 14.5h12a1 1 0 0 0 .8-1.6l-.9-1.1a4 4 0 0 1-.9-2.5V7a5 5 0 0 0-5-5zm0 16a2.5 2.5 0 0 0 2.4-2H7.6A2.5 2.5 0 0 0 10 18z"/></svg>
+              <span id="notifications-count">{% if unread_notifications_count %}({{ unread_notifications_count }}){% else %}(0){% endif %}</span>
+            </span>
+          </a>
+          <details class="relative z-50">
+            <summary class="cursor-pointer list-none rounded-full border border-white/10 bg-gradient-to-r from-[#E53935] to-[#FF7A00] px-5 py-2.5 font-semibold text-white shadow-carnival">
+              CONTROL
+            </summary>
+            <div class="absolute right-0 z-40 mt-3 min-w-[260px] rounded-[1.4rem] border border-white/20 bg-[#FFF8E8] p-2 shadow-glow">
+              <a class="block rounded-xl px-3 py-2 text-slate-900 hover:bg-[#F5C518]/25" href="{% url 'edit_profile' %}">Mi perfil</a>
+              <a class="block rounded-xl px-3 py-2 text-slate-900 hover:bg-[#F5C518]/25" href="{% url 'event_list' %}">Ver eventos</a>
+              <a class="block rounded-xl px-3 py-2 text-slate-900 hover:bg-[#F5C518]/25" href="{% url 'create_event' %}">Crear evento</a>
+              <a class="block rounded-xl px-3 py-2 text-slate-900 hover:bg-[#F5C518]/25" href="{% url 'edit_rules' %}">Editar reglas</a>
+              <a class="block rounded-xl px-3 py-2 text-slate-900 hover:bg-[#F5C518]/25" href="{% url 'review_reports_list' %}">Reportes</a>
+              <a class="block rounded-xl px-3 py-2 text-slate-900 hover:bg-[#F5C518]/25" href="{% url 'user_list' %}">Gestionar usuarios</a>
+              <a class="block rounded-xl px-3 py-2 text-slate-900 hover:bg-[#F5C518]/25" href="{% url 'user_tickets' %}">Gestionar entradas QR</a>
+              {% if perms.core.can_validate_tickets %}
+                <a class="block rounded-xl px-3 py-2 text-slate-900 hover:bg-[#F5C518]/25" href="{% url 'validate_token' %}">Validar boleta</a>
+              {% endif %}
+            </div>
+          </details>
+        {% elif user.is_authenticated and perms.core.can_validate_tickets %}
+          <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">Eventos</a>
+          <a id="notifications-link" href="{% url 'notifications_list' %}" {% if request.resolver_match.url_name == 'notifications_list' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FFFFFF;border-color:rgba(255,255,255,0.7);color:#E53935;">
+            <span id="notifications-bell" class="inline-flex items-center gap-1 text-red-600">
+              <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 2a5 5 0 0 0-5 5v2.3c0 .9-.3 1.8-.9 2.5l-.9 1.1A1 1 0 0 0 4 14.5h12a1 1 0 0 0 .8-1.6l-.9-1.1a4 4 0 0 1-.9-2.5V7a5 5 0 0 0-5-5zm0 16a2.5 2.5 0 0 0 2.4-2H7.6A2.5 2.5 0 0 0 10 18z"/></svg>
+              <span id="notifications-count">{% if unread_notifications_count %}({{ unread_notifications_count }}){% else %}(0){% endif %}</span>
+            </span>
+          </a>
+          <details class="relative z-50">
+            <summary class="cursor-pointer list-none rounded-full border border-white/10 bg-gradient-to-r from-[#E53935] to-[#FF7A00] px-5 py-2.5 font-semibold text-white shadow-carnival">
+              CONTROL
+            </summary>
+            <div class="absolute right-0 z-40 mt-3 min-w-[260px] rounded-[1.4rem] border border-white/20 bg-[#FFF8E8] p-2 shadow-glow">
+              <a class="block rounded-xl px-3 py-2 text-slate-900 hover:bg-[#F5C518]/25" href="{% url 'edit_profile' %}">Mi perfil</a>
+              <a class="block rounded-xl px-3 py-2 text-slate-900 hover:bg-[#F5C518]/25" href="{% url 'validate_token' %}">Validar boleta</a>
+              <a class="block rounded-xl px-3 py-2 text-slate-900 hover:bg-[#F5C518]/25" href="{% url 'user_tickets' %}">Gestionar entradas QR</a>
+            </div>
+          </details>
+        {% elif user.is_authenticated %}
+          <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">Eventos</a>
+          <a id="notifications-link" href="{% url 'notifications_list' %}" {% if request.resolver_match.url_name == 'notifications_list' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FFFFFF;border-color:rgba(255,255,255,0.7);color:#E53935;">
+            <span id="notifications-bell" class="inline-flex items-center gap-1 text-red-600">
+              <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 2a5 5 0 0 0-5 5v2.3c0 .9-.3 1.8-.9 2.5l-.9 1.1A1 1 0 0 0 4 14.5h12a1 1 0 0 0 .8-1.6l-.9-1.1a4 4 0 0 1-.9-2.5V7a5 5 0 0 0-5-5zm0 16a2.5 2.5 0 0 0 2.4-2H7.6A2.5 2.5 0 0 0 10 18z"/></svg>
+              <span id="notifications-count">{% if unread_notifications_count %}({{ unread_notifications_count }}){% else %}(0){% endif %}</span>
+            </span>
+          </a>
+        {% else %}
+          <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">Eventos</a>
+          <a href="{% url 'login' %}" {% if request.resolver_match.url_name == 'login' %}aria-current="page"{% endif %} class="inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;" aria-label="Iniciar sesión" title="Iniciar sesión">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5z"/>
+            </svg>
+          </a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+  <main id="contenido-principal" class="mx-auto max-w-6xl px-4 py-8 sm:py-10">
+    {% if messages %}
+      <div class="mb-6 space-y-3" aria-live="polite">
+        {% for message in messages %}
+          <p class="rounded-[1.25rem] border border-white/20 bg-[linear-gradient(135deg,rgba(255,248,232,0.96)_0%,rgba(255,255,255,0.94)_100%)] px-5 py-4 shadow-soft" role="status">{{ message }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="relative mt-8 overflow-hidden border-t border-white/10 bg-[linear-gradient(135deg,#0B2350_0%,#0D2A5C_30%,#1F5FBF_62%,#00AEEF_100%)] text-white">
+    <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(245,197,24,0.22),_transparent_26%),radial-gradient(circle_at_center,_rgba(255,122,0,0.16),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(0,174,239,0.2),_transparent_24%)]"></div>
+    <div class="mx-auto grid max-w-6xl gap-3 px-4 py-3 md:grid-cols-3 md:items-center">
+      <div class="flex justify-center md:justify-start">
+        <div class="text-center md:text-left">
+          <p class="mb-3 text-base text-blue-50 sm:text-lg">
+            Una experiencia que une arte, cultura y la alegría del Carnaval de Barranquilla en Atlanta.
+          </p>
+          {% if user.is_authenticated %}
+            <form method="post" action="{% url 'logout' %}">
+              {% csrf_token %}
+              <button class="btn-danger px-4 py-2 text-base sm:text-lg" type="submit">Cerrar sesión</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="relative text-center leading-tight">
+        <img class="mx-auto h-44 w-auto sm:h-56" src="{% static 'imagenes/BoletasQR_20260317.png' %}" alt="BoletasQR">
+        <p class="mt-0 text-base font-semibold text-[#F5C518] sm:text-lg">Vive la experiencia.</p>
+        <p class="mt-0 text-base text-blue-50 sm:text-lg">2026 MaruVision. Todos los derechos reservados.</p>
+      </div>
+
+      <div class="flex items-center justify-center gap-3 md:justify-end">
+        <button class="rounded-full border border-white/35 bg-[#25D366] p-3 text-white shadow-[0_14px_30px_rgba(37,211,102,0.35)] transition duration-150 ease-out hover:scale-110 hover:shadow-[0_18px_36px_rgba(37,211,102,0.5)]" type="button" aria-label="WhatsApp">
+          <svg class="h-7 w-7" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M13.601 2.326A7.854 7.854 0 0 0 8.001 0a7.94 7.94 0 0 0-6.881 11.91L0 16l4.204-1.102A7.936 7.936 0 0 0 8 16h.003a7.94 7.94 0 0 0 5.598-13.674zM8.003 14.5a6.43 6.43 0 0 1-3.275-.895l-.235-.14-2.493.654.664-2.433-.153-.249A6.43 6.43 0 1 1 8.003 14.5zm3.517-4.788c-.192-.096-1.138-.561-1.314-.625-.176-.064-.304-.096-.432.096-.128.192-.496.625-.608.753-.112.128-.224.144-.416.048-.192-.096-.81-.299-1.543-.953-.57-.508-.954-1.135-1.066-1.327-.112-.192-.012-.296.084-.392.087-.087.192-.224.288-.336.096-.112.128-.192.192-.32.064-.128.032-.24-.016-.336-.048-.096-.432-1.04-.592-1.423-.156-.374-.314-.323-.432-.329l-.368-.007a.705.705 0 0 0-.512.24c-.176.192-.672.656-.672 1.6 0 .944.688 1.856.784 1.984.096.128 1.354 2.067 3.28 2.9.458.198.815.316 1.093.404.459.146.877.126 1.207.076.368-.055 1.138-.465 1.298-.913.16-.448.16-.832.112-.913-.048-.08-.176-.128-.368-.224z"/></svg>
+        </button>
+        <button class="rounded-full border border-white/35 bg-[#1877F2] p-3 text-white shadow-[0_14px_30px_rgba(24,119,242,0.35)] transition duration-150 ease-out hover:scale-110 hover:shadow-[0_18px_36px_rgba(24,119,242,0.5)]" type="button" aria-label="Facebook">
+          <svg class="h-7 w-7" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.5 22v-8h2.6l.4-3h-3V9.1c0-.9.3-1.6 1.6-1.6h1.7V4.8c-.3 0-1.3-.1-2.5-.1-2.5 0-4.1 1.5-4.1 4.3V11H7.5v3h2.7v8h3.3z"/></svg>
+        </button>
+        <button class="rounded-full border border-white/35 bg-[linear-gradient(135deg,#F58529_0%,#DD2A7B_55%,#8134AF_100%)] p-3 text-white shadow-[0_14px_30px_rgba(221,42,123,0.35)] transition duration-150 ease-out hover:scale-110 hover:shadow-[0_18px_36px_rgba(221,42,123,0.5)]" type="button" aria-label="Instagram">
+          <svg class="h-7 w-7" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7zm5 3.5A5.5 5.5 0 1 1 6.5 13 5.5 5.5 0 0 1 12 7.5zm0 2A3.5 3.5 0 1 0 15.5 13 3.5 3.5 0 0 0 12 9.5zM18 6.8a1.2 1.2 0 1 1-1.2 1.2A1.2 1.2 0 0 1 18 6.8z"/></svg>
+        </button>
+      </div>
+    </div>
+  </footer>
+  <div id="notification-toast" class="fixed right-4 top-4 z-50 hidden max-w-sm rounded-[1.5rem] border border-white/20 bg-[linear-gradient(135deg,rgba(255,248,232,0.98)_0%,rgba(255,255,255,0.95)_100%)] p-4 shadow-glow" role="status" aria-live="polite">
+    <p id="notification-toast-title" class="font-semibold text-brand-900"></p>
+    <p id="notification-toast-body" class="mt-1 text-sm text-slate-700"></p>
+  </div>
+  <div id="global-delete-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4" role="dialog" aria-modal="true" aria-labelledby="global-delete-title">
+    <div class="w-full max-w-md rounded-[1.75rem] border border-white/25 bg-[linear-gradient(135deg,rgba(255,248,232,0.99)_0%,rgba(255,255,255,0.96)_100%)] p-6 shadow-glow">
+      <h3 id="global-delete-title" class="text-lg font-semibold text-slate-900">Confirmar eliminación</h3>
+      <p id="global-delete-text" class="mt-2 text-sm text-slate-700">¿Seguro que deseas realizar esta eliminación?</p>
+      <div class="mt-4 flex items-center justify-end gap-2">
+        <button id="global-delete-cancel" class="btn-neutral !border-slate-300 !bg-white !text-slate-700 hover:!text-white" type="button">Cancelar</button>
+        <button id="global-delete-confirm" class="btn-danger" type="button">Confirmar</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var key = "scroll-restore";
+
+      document.addEventListener(
+        "submit",
+        function (event) {
+          var form = event.target;
+          if (!form || !form.method) return;
+          if (String(form.method).toUpperCase() !== "POST") return;
+          var payload = {
+            url: window.location.pathname + window.location.search,
+            y: window.scrollY || window.pageYOffset || 0
+          };
+          sessionStorage.setItem(key, JSON.stringify(payload));
+        },
+        true
+      );
+
+      window.addEventListener("load", function () {
+        var raw = sessionStorage.getItem(key);
+        if (!raw) return;
+        try {
+          var payload = JSON.parse(raw);
+          var current = window.location.pathname + window.location.search;
+          if (!payload || payload.url !== current) return;
+          sessionStorage.removeItem(key);
+          window.scrollTo(0, Number(payload.y || 0));
+        } catch (e) {
+          sessionStorage.removeItem(key);
+        }
+      });
+    })();
+  </script>
+  <script>
+    (function () {
+      var modal = document.getElementById("global-delete-modal");
+      var textNode = document.getElementById("global-delete-text");
+      var confirmBtn = document.getElementById("global-delete-confirm");
+      var cancelBtn = document.getElementById("global-delete-cancel");
+      var activeForm = null;
+      if (!modal || !confirmBtn || !cancelBtn) return;
+
+      function closeModal() {
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+        activeForm = null;
+      }
+
+      document.addEventListener("submit", function (event) {
+        var form = event.target;
+        if (!form || !form.classList || !form.classList.contains("js-confirm-delete")) return;
+        if (form.dataset.confirmed === "1") {
+          form.dataset.confirmed = "";
+          return;
+        }
+        event.preventDefault();
+        activeForm = form;
+        var message = form.getAttribute("data-confirm-message") || "¿Seguro que deseas realizar esta eliminación?";
+        if (textNode) textNode.textContent = message;
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+      }, true);
+
+      confirmBtn.addEventListener("click", function () {
+        if (!activeForm) {
+          closeModal();
+          return;
+        }
+        activeForm.dataset.confirmed = "1";
+        activeForm.submit();
+      });
+
+      cancelBtn.addEventListener("click", closeModal);
+      modal.addEventListener("click", function (event) {
+        if (event.target === modal) closeModal();
+      });
+    })();
+  </script>
+  {% if user.is_authenticated %}
+    <script>
+      (function () {
+        var countNode = document.getElementById("notifications-count");
+        var bellNode = document.getElementById("notifications-bell");
+        if (!countNode) return;
+        var toast = document.getElementById("notification-toast");
+        var toastTitle = document.getElementById("notification-toast-title");
+        var toastBody = document.getElementById("notification-toast-body");
+        var endpoint = "{% url 'notifications_unread_api' %}";
+        var unread = {{ unread_notifications_count|default:0 }};
+        var latestShownId = 0;
+        var isOnNotificationsPage = window.location.pathname === "{% url 'notifications_list' %}";
+
+        function renderCount(value) {
+          countNode.textContent = "(" + value + ")";
+          if (!bellNode) return;
+          bellNode.classList.remove("text-slate-700");
+          bellNode.classList.add("text-red-600");
+        }
+
+        function showToast(title, body) {
+          if (!toast || !toastTitle || !toastBody) return;
+          toastTitle.textContent = title || "Nueva notificación";
+          toastBody.textContent = body || "";
+          toast.classList.remove("hidden");
+          setTimeout(function () {
+            toast.classList.add("hidden");
+          }, 4000);
+        }
+
+        function syncUnread() {
+          fetch(endpoint, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+            .then(function (response) {
+              if (!response.ok) return null;
+              return response.json();
+            })
+            .then(function (data) {
+              if (!data) return;
+              var nextUnread = Number(data.unread_count || 0);
+              renderCount(nextUnread);
+              var latest = data.latest || {};
+              var latestId = Number(latest.id || 0);
+              if (!isOnNotificationsPage && latestId && latestId !== latestShownId && nextUnread > unread) {
+                showToast(latest.title, latest.body);
+              }
+              latestShownId = latestId || latestShownId;
+              unread = nextUnread;
+            })
+            .catch(function () {});
+        }
+
+        renderCount(unread);
+        setInterval(syncUnread, 10000);
+      })();
+    </script>
+  {% endif %}
+  {% block scripts %}{% endblock %}
+</body>
+</html>
+
+
+
+
+
+
+
+
+

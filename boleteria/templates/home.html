@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Inicio | Boletas QR{% endblock %}
+{% block content %}
+  <section class="relative overflow-hidden rounded-[2rem] border border-white/15 bg-[linear-gradient(145deg,rgba(255,248,232,0.98)_0%,rgba(255,255,255,0.95)_46%,rgba(245,197,24,0.18)_100%)] p-6 shadow-glow sm:p-8 lg:p-10">
+    <div class="pointer-events-none absolute -left-20 top-0 h-52 w-52 rounded-full bg-[#00AEEF]/20 blur-3xl"></div>
+    <div class="pointer-events-none absolute right-0 top-8 h-48 w-48 rounded-full bg-[#F5C518]/25 blur-3xl"></div>
+    <div class="pointer-events-none absolute bottom-0 left-1/3 h-40 w-40 rounded-full bg-[#E53935]/15 blur-3xl"></div>
+
+    <div class="relative grid gap-8 lg:grid-cols-[1.4fr_0.8fr] lg:items-center">
+      <div class="order-2 lg:order-1">
+        <span class="inline-flex rounded-full border border-[#FFB347] bg-[linear-gradient(135deg,#FF7A00_0%,#FFA033_100%)] px-4 py-2 text-sm font-bold uppercase tracking-[0.22em] text-white shadow-lg">
+          Carnaval de Barranquilla en Atlanta
+        </span>
+
+        {% if user.is_authenticated %}
+          <h1 class="mt-5 max-w-3xl text-3xl font-extrabold leading-tight !text-[#0D2A5C] sm:text-4xl lg:text-5xl">
+            <span class="title-top">Hola, {{ home_display_name }}.</span>
+            <span class="title-bottom text-2xl sm:text-3xl lg:text-4xl">Preparate para vivir una experiencia llena de color, arte y celebracion.</span>
+          </h1>
+          {% if user.is_staff or perms.core.can_validate_tickets %}
+            <p class="mt-4 inline-flex rounded-full bg-[#1F5FBF]/10 px-4 py-2 text-sm font-semibold text-[#1F5FBF]">
+              Rol: <strong class="ml-1">{{ home_role }}</strong>
+            </p>
+          {% endif %}
+        {% else %}
+          <h1 class="mt-5 max-w-3xl text-3xl font-extrabold leading-tight !text-[#0D2A5C] sm:text-4xl lg:text-5xl">
+            <span class="title-top">Vive el Carnaval con una experiencia</span>
+            <span class="title-bottom">vibrante, moderna y lista para participar.</span>
+          </h1>
+          <p class="mt-5 max-w-2xl text-lg leading-8 text-slate-700 sm:text-xl">
+            Vive la alegria, disfruta la cultura y celebra el Carnaval de Barranquilla en Atlanta.
+          </p>
+        {% endif %}
+
+        {% if user.is_authenticated %}
+          <div class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {% if perms.core.can_validate_tickets and not user.is_staff %}
+              <a class="home-auth-btn rounded-2xl bg-[linear-gradient(135deg,#0D2A5C_0%,#1F5FBF_100%)] px-4 py-4 text-center font-semibold text-white shadow-soft transition" href="{% url 'edit_profile' %}">Mi perfil</a>
+              <a class="home-auth-btn rounded-2xl bg-[linear-gradient(135deg,#1F5FBF_0%,#00AEEF_100%)] px-4 py-4 text-center font-semibold text-white shadow-soft transition" href="{% url 'validate_token' %}">Validar boleta de rifa</a>
+              <a class="home-auth-btn rounded-2xl bg-[linear-gradient(135deg,#FF7A00_0%,#FFA033_100%)] px-4 py-4 text-center font-semibold text-white shadow-soft transition" href="{% url 'user_tickets' %}">Gestionar participaciones de usuarios</a>
+            {% else %}
+              <a class="home-auth-btn rounded-2xl bg-[linear-gradient(135deg,#0D2A5C_0%,#1F5FBF_100%)] px-4 py-4 text-center font-semibold text-white shadow-soft transition" href="{% url 'edit_profile' %}">Mi perfil</a>
+              {% if not user.is_staff %}
+                <a class="home-auth-btn rounded-2xl bg-[linear-gradient(135deg,#1F5FBF_0%,#00AEEF_100%)] px-4 py-4 text-center font-semibold text-white shadow-soft transition" href="{% url 'my_tickets' %}">Mis entradas QR</a>
+                {% if not perms.core.can_validate_tickets %}
+                  <a class="home-auth-btn rounded-2xl bg-[linear-gradient(135deg,#F5C518_0%,#FFB347_100%)] px-4 py-4 text-center font-semibold text-[#0D2A5C] shadow-soft transition" href="{% url 'event_list' %}">Eventos</a>
+                {% endif %}
+              {% endif %}
+              {% if user.is_staff %}
+                <a class="home-auth-btn rounded-2xl bg-[linear-gradient(135deg,#1F5FBF_0%,#00AEEF_100%)] px-4 py-4 text-center font-semibold text-white shadow-soft transition" href="{% url 'create_event' %}">Crear evento</a>
+                <a class="home-auth-btn rounded-2xl bg-[linear-gradient(135deg,#FF7A00_0%,#FFA033_100%)] px-4 py-4 text-center font-semibold text-white shadow-soft transition" href="{% url 'review_reports_list' %}">Reportes</a>
+                <a class="home-auth-btn rounded-2xl bg-[linear-gradient(135deg,#E53935_0%,#FF7A00_100%)] px-4 py-4 text-center font-semibold text-white shadow-soft transition" href="{% url 'user_list' %}">Gestionar usuarios</a>
+                <a class="home-auth-btn rounded-2xl bg-[linear-gradient(135deg,#00AEEF_0%,#1F5FBF_100%)] px-4 py-4 text-center font-semibold text-white shadow-soft transition" href="{% url 'user_tickets' %}">Gestionar entradas QR</a>
+              {% endif %}
+              {% if perms.core.can_validate_tickets %}
+                <a class="home-auth-btn rounded-2xl bg-[linear-gradient(135deg,#00AEEF_0%,#1F5FBF_100%)] px-4 py-4 text-center font-semibold text-white shadow-soft transition" href="{% url 'validate_token' %}">Validar boleta de rifa</a>
+              {% endif %}
+            {% endif %}
+          </div>
+          {% if user.is_staff or perms.core.can_validate_tickets %}
+            <div class="mt-4 flex justify-center">
+              <a class="home-auth-btn min-w-[220px] rounded-2xl bg-[linear-gradient(135deg,#F5C518_0%,#FFB347_100%)] px-6 py-4 text-center font-semibold text-[#0D2A5C] shadow-soft transition" href="{% url 'event_list' %}">Eventos</a>
+            </div>
+          {% endif %}
+          <form class="mt-6" method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button class="btn-danger" type="submit">Cerrar sesion</button>
+          </form>
+        {% else %}
+          <div class="mt-8 flex flex-wrap gap-4">
+            <a class="btn-primary home-cta" href="{% url 'login' %}">Iniciar sesion</a>
+            <a class="btn-neutral home-cta border-[#1F5FBF]/30 bg-white/70 !text-[#0D2A5C]" href="{% url 'signup' %}">Registrarse</a>
+            <a class="btn-neutral home-cta border-[#0D2A5C]/20 bg-[#0D2A5C]/8 !text-[#0D2A5C]" href="{% url 'event_list' %}">Eventos</a>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="relative order-1 lg:order-2">
+        {% if user.is_authenticated %}
+          <div class="mx-auto flex max-w-sm items-center justify-center">
+            {% if home_photo_url %}
+              <img class="h-36 w-36 rounded-full border-4 border-[#FF7A00] object-cover shadow-soft sm:h-44 sm:w-44 lg:h-56 lg:w-56" src="{{ home_photo_url }}" alt="Foto de perfil de {{ home_display_name }}">
+            {% else %}
+              <div class="flex h-36 w-36 items-center justify-center rounded-full border-4 border-[#FF7A00] bg-white/15 text-base font-semibold text-white sm:h-44 sm:w-44 lg:h-56 lg:w-56">
+                Sin foto
+              </div>
+            {% endif %}
+          </div>
+        {% else %}
+          <a href="{% url 'event_list' %}" class="marimonda-card block mx-auto max-w-[280px] overflow-hidden rounded-[2rem] border border-white/40 bg-white/35 shadow-glow backdrop-blur-sm sm:max-w-[320px]">
+            <img class="block w-full object-contain" src="/static/imagenes/marimonda.png" alt="Marimonda del Carnaval de Barranquilla en Atlanta">
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <section class="mt-8 rounded-[2rem] border border-[#FFB347] bg-[linear-gradient(180deg,rgba(230,111,0,0.96)_0%,rgba(245,138,24,0.94)_38%,rgba(255,122,0,0.92)_100%)] p-4 shadow-carnival sm:p-5">
+    <div class="overflow-hidden rounded-[1.5rem] border border-[#FF7A00] bg-[#0D2A5C]">
+      <div class="relative w-full" style="padding-top: 56.25%;">
+        <iframe
+          class="absolute left-0 top-0 h-full w-full"
+          src="https://www.youtube.com/embed/JrozMeSCjcc?rel=0"
+          title="Video destacado"
+          loading="lazy"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allowfullscreen>
+        </iframe>
+      </div>
+    </div>
+  </section>
+{% endblock %}

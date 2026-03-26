@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Registrarse | Boletas QR{% endblock %}
+{% block content %}
+  <section class="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
+    <section class="panel mx-auto w-full max-w-xl p-6 lg:p-8">
+      <h1 class="text-2xl font-semibold text-brand-900 lg:text-3xl">
+        <span class="title-top">Registro de</span>
+        <span class="title-bottom">usuario</span>
+      </h1>
+      <p class="mt-2 text-slate-600">Crea tu cuenta para entrar a una experiencia mas alegre, cultural y conectada con el Carnaval.</p>
+      <form class="mt-5 space-y-3" method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button class="btn-primary w-full sm:w-auto" type="submit">Crear cuenta</button>
+      </form>
+      {% if enable_google_auth %}
+        <div class="mt-5 rounded-[1.5rem] border border-slate-200 bg-[#FFF8E8] p-4 text-center">
+          <p class="text-sm font-semibold text-slate-700">Registrarse con Google</p>
+          <a
+            class="mx-auto mt-3 inline-flex h-14 w-14 items-center justify-center rounded-full border border-slate-300 bg-white shadow-soft hover:bg-slate-50"
+            href="/accounts/google/login/?process=signup"
+            aria-label="Registrarse con Google"
+            title="Registrarse con Google"
+          >
+            <svg class="h-7 w-7" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.3-1.6 3.9-5.5 3.9-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.2.8 3.9 1.5l2.7-2.6C16.9 3.3 14.7 2.4 12 2.4 6.7 2.4 2.4 6.7 2.4 12S6.7 21.6 12 21.6c6.9 0 9.6-4.8 9.6-7.3 0-.5-.1-.8-.1-1.2H12z"/>
+            </svg>
+          </a>
+        </div>
+      {% endif %}
+      <p class="mt-5"><a class="link-primary font-semibold" href="{% url 'login' %}">Ya tengo una cuenta</a></p>
+    </section>
+
+    <div class="relative overflow-hidden rounded-[2rem] border border-white/15 bg-[linear-gradient(145deg,#E53935_0%,#FF7A00_55%,#F5C518_100%)] p-8 text-white shadow-carnival">
+      <div class="absolute -right-8 top-0 h-36 w-36 rounded-full bg-white/18 blur-3xl"></div>
+      <div class="absolute -left-8 bottom-0 h-36 w-36 rounded-full bg-[#0D2A5C]/20 blur-3xl"></div>
+      <div class="relative">
+        <span class="inline-flex rounded-full bg-white/15 px-4 py-2 text-sm font-bold uppercase tracking-[0.2em] text-white">
+          Unete
+        </span>
+        <h2 class="mt-5 text-4xl font-extrabold leading-tight text-white">Crea tu acceso al Carnaval</h2>
+        <p class="mt-4 text-lg leading-8 text-orange-50">
+          Registrate para explorar eventos, comprar tus entradas QR y vivir una plataforma con mas energia visual y mejor presencia de marca.
+        </p>
+        <div class="mt-8 space-y-3">
+          <div class="rounded-2xl bg-white/14 p-4 backdrop-blur-sm">
+            <span class="block text-xs font-bold uppercase tracking-[0.18em] text-[#0D2A5C]">Identidad</span>
+            <span class="mt-1 block text-sm text-white">Inspirada en el Carnaval de Barranquilla</span>
+          </div>
+          <div class="rounded-2xl bg-white/14 p-4 backdrop-blur-sm">
+            <span class="block text-xs font-bold uppercase tracking-[0.18em] text-[#0D2A5C]">Diseno</span>
+            <span class="mt-1 block text-sm text-white">Vibrante, usable y profesional</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}

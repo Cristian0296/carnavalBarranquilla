@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Crear usuario | Boletas QR{% endblock %}
+{% block content %}
+  <h1 class="text-2xl font-semibold text-brand-900">
+    <span class="title-top">Crear nuevo</span>
+    <span class="title-bottom">usuario</span>
+  </h1>
+{% if created %}
+    <p class="mt-3 rounded-lg bg-emerald-50 px-4 py-3 text-emerald-800">Usuario creado correctamente.</p>
+  {% endif %}
+  <form class="panel mt-4 p-5" method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button class="btn-primary" type="submit">Guardar usuario</button>
+  </form>
+  <p class="mt-6"><a class="link-primary" href="{% url 'user_list' %}">Volver a gestión de usuarios</a></p>
+{% endblock %}

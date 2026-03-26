@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Nosotros | Boletas QR{% endblock %}
+{% block content %}
+  <section class="space-y-8">
+    <section class="relative mx-auto max-w-4xl overflow-hidden rounded-[2rem] border border-white/15 bg-[linear-gradient(145deg,rgba(255,248,232,0.98)_0%,rgba(255,255,255,0.95)_46%,rgba(245,197,24,0.18)_100%)] p-6 shadow-glow sm:p-8 lg:p-10">
+      <div class="pointer-events-none absolute -left-20 top-0 h-52 w-52 rounded-full bg-[#00AEEF]/20 blur-3xl"></div>
+      <div class="pointer-events-none absolute right-0 top-8 h-48 w-48 rounded-full bg-[#F5C518]/25 blur-3xl"></div>
+      <div class="pointer-events-none absolute bottom-0 left-1/3 h-40 w-40 rounded-full bg-[#E53935]/15 blur-3xl"></div>
+
+      <div class="relative">
+        <span class="inline-flex rounded-full border border-[#FFB347] bg-[linear-gradient(135deg,#FF7A00_0%,#FFA033_100%)] px-4 py-2 text-sm font-bold uppercase tracking-[0.22em] text-white shadow-lg">
+          Nosotros
+        </span>
+        <h1 class="mt-5 text-2xl font-extrabold leading-tight !text-[#0D2A5C] sm:text-3xl lg:text-4xl">
+          <span class="title-top">Somos cultura, identidad y comunidad</span>
+          <span class="title-bottom">al servicio del Carnaval de Barranquilla en Atlanta.</span>
+        </h1>
+        <p class="mt-5 text-lg leading-8 text-slate-700 sm:text-xl">
+          Promovemos y difundimos la cultura de Barranquilla, Colombia, creando experiencias que conectan a las personas con la alegría, el color y la tradición de esta gran celebración.
+        </p>
+      </div>
+    </section>
+
+    <section class="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <article class="rounded-[1.75rem] border border-[#1F5FBF]/15 bg-white p-6 shadow-soft sm:p-8">
+        <h2 class="text-2xl font-extrabold text-[#0D2A5C]">Sobre nosotros</h2>
+        <p class="mt-4 text-base leading-8 text-slate-700">
+          Somos una organización sin ánimo de lucro dedicada a promover y difundir la cultura de Barranquilla, Colombia, a través de su expresión más representativa: el Carnaval de Barranquilla.
+        </p>
+        <p class="mt-4 text-base leading-8 text-slate-700">
+          Creamos experiencias culturales en Atlanta que conectan a las personas con la alegría, el color y la tradición de esta gran celebración.
+        </p>
+
+        <h3 class="mt-8 text-xl font-extrabold text-[#0D2A5C]">Nuestra comunidad</h3>
+        <p class="mt-4 text-base leading-8 text-slate-700">
+          Nuestro trabajo está dirigido a una comunidad diversa e inclusiva: personas de diferentes nacionalidades, culturas y tradiciones que viven en Atlanta y sus alrededores.
+        </p>
+        <p class="mt-4 text-base leading-8 text-slate-700">
+          Nos enfocamos especialmente en la comunidad colombiana, llevando un pedazo de nuestra tierra a quienes desean mantener viva su identidad y compartirla con el mundo.
+        </p>
+      </article>
+
+      <article class="rounded-[1.75rem] border border-[#F5C518]/35 bg-[linear-gradient(180deg,rgba(255,248,232,0.96)_0%,rgba(255,255,255,0.96)_100%)] p-6 shadow-soft sm:p-8">
+        <h2 class="text-2xl font-extrabold text-[#0D2A5C]">Nuestro diferencial</h2>
+        <p class="mt-4 text-base leading-8 text-slate-700">
+          Somos la única organización en Atlanta que reúne de manera oficial a múltiples actores del ámbito cultural para ofrecer una experiencia auténtica, vibrante y fiel al espíritu del Carnaval de Barranquilla.
+        </p>
+        <ul class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm font-semibold leading-6 text-slate-700">
+          <li class="flex min-h-[88px] items-center justify-center rounded-full border border-[#F5C518]/35 bg-[#FFF8E8] px-4 py-3 text-center">Músicos</li>
+          <li class="flex min-h-[88px] items-center justify-center rounded-full border border-[#00AEEF]/25 bg-[#F3FBFF] px-4 py-3 text-center">Artesanos</li>
+          <li class="flex min-h-[88px] items-center justify-center rounded-full border border-[#FF7A00]/28 bg-[#FFF4EC] px-4 py-3 text-center">Diseñadores y modistos</li>
+          <li class="flex min-h-[88px] items-center justify-center rounded-full border border-[#2ECC71]/25 bg-[#F2FCF6] px-4 py-3 text-center">Coreógrafos</li>
+          <li class="flex min-h-[88px] items-center justify-center rounded-full border border-[#E53935]/22 bg-[#FFF4F4] px-4 py-3 text-center">Gastronomía tradicional</li>
+          <li class="flex min-h-[88px] items-center justify-center rounded-full border border-[#1F5FBF]/22 bg-[#F4F8FF] px-4 py-3 text-center">Promotores culturales y eventos</li>
+        </ul>
+      </article>
+    </section>
+
+    <section class="rounded-[1.75rem] border border-[#1F5FBF]/15 bg-white p-6 shadow-soft sm:p-8">
+      <div class="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+        <div>
+          <h2 class="text-2xl font-extrabold text-[#0D2A5C]">Visión</h2>
+          <p class="mt-4 text-base leading-8 text-slate-700">
+            Convertirnos en la organización cultural más influyente de Atlanta, reconocida como embajadora del Carnaval de Barranquilla.
+          </p>
+          <p class="mt-4 text-base leading-8 text-slate-700">
+            Aspiramos a posicionar este carnaval como un evento imprescindible en el calendario cultural de la ciudad, al nivel de celebraciones icónicas como el Cinco de Mayo.
+          </p>
+        </div>
+
+        <div>
+          <h2 class="text-2xl font-extrabold text-[#0D2A5C]">Objetivos</h2>
+          <ul class="mt-5 grid gap-3 sm:grid-cols-2 text-base leading-7 text-slate-700">
+            <li class="rounded-2xl border border-[#F5C518]/35 bg-[#FFF8E8] px-4 py-4">Promover y difundir la cultura barranquillera a través del carnaval.</li>
+            <li class="rounded-2xl border border-[#00AEEF]/25 bg-[#F3FBFF] px-4 py-4">Preservar y fortalecer nuestras tradiciones culturales.</li>
+            <li class="rounded-2xl border border-[#FF7A00]/28 bg-[#FFF4EC] px-4 py-4">Acercar el carnaval a nuevas generaciones nacidas en Estados Unidos.</li>
+            <li class="rounded-2xl border border-[#2ECC71]/25 bg-[#F2FCF6] px-4 py-4">Crear espacios auténticos para la expresión cultural colombiana.</li>
+            <li class="rounded-2xl border border-[#E53935]/22 bg-[#FFF4F4] px-4 py-4">Educar y transmitir el valor de nuestras raíces.</li>
+            <li class="rounded-2xl border border-[#1F5FBF]/22 bg-[#F4F8FF] px-4 py-4">Desarrollar talleres de música y danza para mantener viva la tradición.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </section>
+{% endblock %}

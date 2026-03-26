@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}QR de usuario | Boletas QR{% endblock %}
+{% block content %}
+  <h1 class="text-[2rem] font-semibold text-white sm:text-3xl lg:text-4xl">
+    <span class="title-top !text-white" style="-webkit-text-stroke:1px #FF7A00; text-shadow:1px 1px 0 #FF7A00, -1px 1px 0 #FF7A00, 1px -1px 0 #FF7A00, -1px -1px 0 #FF7A00;">Codigos QR de</span>
+    <span class="title-bottom !text-white" style="-webkit-text-stroke:1px #FF7A00; text-shadow:1px 1px 0 #FF7A00, -1px 1px 0 #FF7A00, 1px -1px 0 #FF7A00, -1px -1px 0 #FF7A00;">participaciones</span>
+  </h1>
+
+  <p class="mt-3 text-base text-slate-600 sm:text-lg">Usuario: <strong>{{ selected_user.username }}</strong></p>
+
+  {% if tickets_with_qr %}
+    <div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {% for row in tickets_with_qr %}
+        <article class="panel p-4">
+          <p class="text-sm"><strong>Evento:</strong> {{ row.ticket.event.title }}</p>
+          <p class="text-sm"><strong>Numero de boleta:</strong> {{ row.ticket.raffle_number_display }}</p>
+          <p class="text-sm"><strong>Estado:</strong> {{ row.ticket.get_status_display }}</p>
+          {% if row.qr_data_uri %}
+            <img class="mt-3 w-full max-w-48 rounded-lg border border-slate-200" src="{{ row.qr_data_uri }}" alt="QR de {{ row.ticket.ticket_uuid }}">
+            <div class="mt-4 flex flex-wrap items-center gap-2">
+              <a class="btn-neutral px-3 py-2 text-sm !border-[#1F5FBF]/20 !bg-white !text-[#0D2A5C]" href="{% url 'event_detail' row.ticket.event.id %}">Ver evento</a>
+              <a class="btn-neutral px-3 py-2 text-sm !border-[#1F5FBF]/20 !bg-white !text-[#0D2A5C]" href="{% url 'download_ticket_qr_jpg' row.ticket.id %}">Descargar QR</a>
+              <button
+                class="btn-primary px-3 py-2 text-sm"
+                type="button"
+                data-print-qr="true"
+                data-ticket-number="{{ row.ticket.raffle_number_display }}"
+                data-event-title="{{ row.ticket.event.title }}"
+                data-qr-src="{{ row.qr_data_uri }}"
+              >
+                Imprimir
+              </button>
+            </div>
+          {% else %}
+            <p class="mt-3 text-sm text-slate-500">No hay QR disponible para esta boleta.</p>
+            <div class="mt-4 flex flex-wrap items-center gap-2">
+              <a class="btn-neutral px-3 py-2 text-sm !border-[#1F5FBF]/20 !bg-white !text-[#0D2A5C]" href="{% url 'event_detail' row.ticket.event.id %}">Ver evento</a>
+            </div>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="panel-soft mt-4 p-4">No se encontraron boletas para este usuario.</p>
+  {% endif %}
+
+  <div class="mt-6">
+    <a class="btn-neutral inline-flex px-4 py-2 text-sm !border-[#1F5FBF]/20 !bg-white !text-[#0D2A5C]" href="{% if return_url %}{{ return_url }}{% else %}{% url 'user_tickets_by_user' selected_user.id %}{% endif %}">Volver</a>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script>
+    (function () {
+      function escapeHtml(value) {
+        return String(value || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      document.addEventListener("click", function (event) {
+        var button = event.target.closest("[data-print-qr='true']");
+        if (!button) return;
+
+        var qrSrc = button.getAttribute("data-qr-src") || "";
+        if (!qrSrc) return;
+
+        var ticketNumber = escapeHtml(button.getAttribute("data-ticket-number"));
+        var eventTitle = escapeHtml(button.getAttribute("data-event-title"));
+        var printWindow = window.open("", "_blank", "width=900,height=700");
+        if (!printWindow) return;
+
+        printWindow.document.open();
+        printWindow.document.write(
+          "<!doctype html><html><head><title>Imprimir QR</title><style>" +
+          "body{font-family:Arial,sans-serif;margin:0;padding:32px;background:#fff;color:#111;}" +
+          ".card{max-width:520px;margin:0 auto;border:2px solid #FF7A00;border-radius:24px;padding:28px;text-align:center;}" +
+          "h1{margin:0 0 12px;font-size:28px;color:#0D2A5C;}" +
+          "p{margin:8px 0;font-size:18px;}" +
+          "img{display:block;margin:24px auto 0;max-width:100%;height:auto;}" +
+          "</style></head><body>" +
+          "<div class='card'>" +
+          "<h1>Codigo QR de participacion</h1>" +
+          "<p><strong>Evento:</strong> " + eventTitle + "</p>" +
+          "<p><strong>Numero:</strong> " + ticketNumber + "</p>" +
+          "<img src='" + qrSrc + "' alt='QR de participacion'>" +
+          "</div>" +
+          "<script>window.onload=function(){window.print();};<\/script>" +
+          "</body></html>"
+        );
+        printWindow.document.close();
+      });
+    })();
+  </script>
+{% endblock %}

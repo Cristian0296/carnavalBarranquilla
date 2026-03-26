@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Crear evento | Boletas QR{% endblock %}
+{% block content %}
+  <h1 class="mt-4 text-3xl sm:text-4xl lg:text-5xl" style="font-family:'Chewy', cursive !important; font-weight:400 !important; font-style:normal; color:#FFFFFF !important; -webkit-text-stroke:1px #FF7A00; text-shadow:1px 1px 0 #FF7A00, -1px 1px 0 #FF7A00, 1px -1px 0 #FF7A00, -1px -1px 0 #FF7A00;">
+    Crear evento
+  </h1>
+  <form class="panel mt-4 p-5" method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <p>
+      <label for="id_images">Imagenes del evento (maximo 3)</label>
+      <input id="id_images" name="images" type="file" accept="image/*" multiple>
+      <span class="mt-1 block text-xs text-slate-500">Puedes seleccionar hasta 3 imagenes. Recomendado: formato horizontal 16:9 (1600x900 o 1920x1080).</span>
+    </p>
+    <button class="btn-primary" type="submit">Guardar evento</button>
+  </form>
+{% endblock %}

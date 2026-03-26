@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Entradas QR confirmadas | Boletas QR{% endblock %}
+{% block content %}
+  <section class="panel p-6">
+  <h1 class="text-2xl font-semibold text-brand-900">
+    <span class="title-top">Compra de entradas QR</span>
+    <span class="title-bottom">confirmada</span>
+  </h1>
+  <p class="mt-3"><strong>Evento:</strong> {{ event.title }}</p>
+  <p><strong>Orden:</strong> #{{ order.id }} ({{ order.get_status_display }})</p>
+  <p>Numero de entradas QR: {{ quantity }}</p>
+  <p>Precio unitario (USD): {{ unit_price_usd }}</p>
+  <p><strong>Total pagado (USD): {{ total_usd }}</strong></p>
+
+  <h2 class="mt-6 text-lg font-semibold">Boletas generadas</h2>
+  <div class="mt-3 space-y-4">
+    {% for row in tickets_with_qr %}
+      <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <p><strong>Numero de entrada:</strong> {{ row.ticket.raffle_number_display }}</p>
+        <p><strong>Estado de la boleta:</strong> {{ row.ticket.get_status_display }}</p>
+        <p class="mt-2 text-sm text-slate-600">Tu boleta quedó emitida. Usa el código QR para el acceso o la validación.</p>
+        <img class="mt-3 w-full max-w-44 rounded-lg border border-slate-200" src="{{ row.qr_data_uri }}" alt="Ticket QR {{ row.ticket.ticket_uuid }}">
+      </article>
+    {% endfor %}
+  </div>
+
+  <p class="mt-6"><a class="link-primary" href="{% url 'event_list' %}">Volver a eventos</a></p>
+  </section>
+{% endblock %}
