@@ -1,6 +1,58 @@
 {% extends "base.html" %}
 {% block title %}Registrarse | Boletas QR{% endblock %}
 {% block content %}
+  <style>
+    .password-toggle-group {
+      display: block;
+    }
+
+    .password-input-shell {
+      position: relative;
+      display: block;
+    }
+
+    .password-input-shell input[type="password"],
+    .password-input-shell input[type="text"] {
+      width: 100%;
+      padding-right: 3.75rem;
+    }
+
+    .password-toggle-button {
+      position: absolute;
+      top: 50%;
+      right: 0.85rem;
+      transform: translateY(-50%);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.25rem;
+      height: 2.25rem;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(255, 122, 0, 0.12);
+      color: #475569;
+      cursor: pointer;
+      transition: color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .password-toggle-button svg {
+      width: 1.15rem;
+      height: 1.15rem;
+    }
+
+    .password-toggle-button:hover,
+    .password-toggle-button:focus-visible {
+      color: #f97316;
+      background: rgba(255, 122, 0, 0.2);
+      outline: none;
+      transform: translateY(-50%) scale(1.05);
+    }
+
+    .password-toggle-button.is-visible {
+      color: #f97316;
+      background: rgba(255, 122, 0, 0.18);
+    }
+  </style>
   <section class="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
     <section class="panel mx-auto w-full max-w-xl p-6 lg:p-8">
       <h1 class="text-2xl font-semibold text-brand-900 lg:text-3xl">
@@ -66,4 +118,64 @@
       </div>
     </div>
   </section>
+  <script>
+    (() => {
+      const passwordInputs = document.querySelectorAll('input[name="password1"], input[name="password2"]');
+
+      passwordInputs.forEach((passwordInput) => {
+        if (!passwordInput || passwordInput.dataset.toggleReady === "true") {
+          return;
+        }
+
+        const fieldWrapper = passwordInput.closest("p") || passwordInput.parentElement;
+        if (!fieldWrapper) {
+          return;
+        }
+
+        fieldWrapper.classList.add("password-toggle-group");
+        passwordInput.dataset.toggleReady = "true";
+        const inputShell = document.createElement("span");
+        inputShell.className = "password-input-shell";
+        passwordInput.parentNode.insertBefore(inputShell, passwordInput);
+        inputShell.appendChild(passwordInput);
+
+        const toggleButton = document.createElement("button");
+        toggleButton.type = "button";
+        toggleButton.className = "password-toggle-button";
+        toggleButton.setAttribute("aria-label", "Mostrar contrasena");
+        toggleButton.setAttribute("aria-pressed", "false");
+        toggleButton.setAttribute("data-password-toggle", "true");
+        toggleButton.innerHTML = `
+          <svg class="password-eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          <svg class="password-eye-closed hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M3 3l18 18"></path>
+            <path d="M10.6 10.7a3 3 0 0 0 4.2 4.2"></path>
+            <path d="M9.5 5.3A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17.7 17.7 0 0 1-4 4.8"></path>
+            <path d="M6.6 6.7A17.2 17.2 0 0 0 2 12s3.5 7 10 7a10.8 10.8 0 0 0 5-1.2"></path>
+          </svg>
+        `;
+
+        const openIcon = toggleButton.querySelector(".password-eye-open");
+        const closedIcon = toggleButton.querySelector(".password-eye-closed");
+
+        toggleButton.addEventListener("click", () => {
+          const isHidden = passwordInput.type === "password";
+          passwordInput.type = isHidden ? "text" : "password";
+          toggleButton.classList.toggle("is-visible", isHidden);
+          openIcon.classList.toggle("hidden", isHidden);
+          closedIcon.classList.toggle("hidden", !isHidden);
+          toggleButton.setAttribute(
+            "aria-label",
+            isHidden ? "Ocultar contrasena" : "Mostrar contrasena"
+          );
+          toggleButton.setAttribute("aria-pressed", isHidden ? "true" : "false");
+        });
+
+        inputShell.appendChild(toggleButton);
+      });
+    })();
+  </script>
 {% endblock %}

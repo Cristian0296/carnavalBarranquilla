@@ -3,11 +3,17 @@
 {% block content %}
   <style>
     .password-toggle-group {
-      position: relative;
+      display: block;
     }
 
-    .password-toggle-group input[type="password"],
-    .password-toggle-group input[type="text"] {
+    .password-input-shell {
+      position: relative;
+      display: block;
+    }
+
+    .password-input-shell input[type="password"],
+    .password-input-shell input[type="text"] {
+      width: 100%;
       padding-right: 3.75rem;
     }
 
@@ -86,6 +92,10 @@
 
       fieldWrapper.classList.add("password-toggle-group");
       passwordInput.dataset.toggleReady = "true";
+      const inputShell = document.createElement("span");
+      inputShell.className = "password-input-shell";
+      passwordInput.parentNode.insertBefore(inputShell, passwordInput);
+      inputShell.appendChild(passwordInput);
 
       const toggleButton = document.createElement("button");
       toggleButton.type = "button";
@@ -122,7 +132,7 @@
         toggleButton.setAttribute("aria-pressed", isHidden ? "true" : "false");
       });
 
-      fieldWrapper.appendChild(toggleButton);
+      inputShell.appendChild(toggleButton);
     })();
   </script>
 {% endblock %}
