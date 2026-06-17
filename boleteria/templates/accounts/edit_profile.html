@@ -10,11 +10,6 @@
       </h1>
       <p class="mt-3 max-w-2xl text-blue-50">Manten tu perfil alineado con tu presencia dentro de la plataforma y mejora tu experiencia de participacion.</p>
     </div>
-
-    {% if updated %}
-      <p class="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-emerald-800">Perfil actualizado correctamente.</p>
-    {% endif %}
-
     <form class="mt-6 space-y-4" method="post" enctype="multipart/form-data">
       {% csrf_token %}
       {% if profile.photo %}

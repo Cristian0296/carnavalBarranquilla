@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Checkout | Boletas QR{% endblock %}
+{% block content %}
+  <style>
+    .payment-loading-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      background: rgba(8, 26, 56, 0.82);
+      backdrop-filter: blur(8px);
+    }
+
+    .payment-loading-overlay.is-visible {
+      display: flex;
+    }
+
+    .payment-loading-card {
+      width: min(100%, 25rem);
+      border-radius: 2rem;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: linear-gradient(145deg, rgba(13, 42, 92, 0.98) 0%, rgba(31, 95, 191, 0.96) 100%);
+      padding: 2rem 1.75rem;
+      text-align: center;
+      box-shadow: 0 24px 60px rgba(8, 26, 56, 0.4);
+    }
+
+    .payment-loading-logo {
+      width: 11rem;
+      max-width: 100%;
+      margin: 0 auto;
+      animation: paymentPulse 1.6s ease-in-out infinite;
+    }
+
+    .payment-loading-spinner {
+      width: 3rem;
+      height: 3rem;
+      margin: 1.25rem auto 0;
+      border-radius: 999px;
+      border: 4px solid rgba(255, 255, 255, 0.2);
+      border-top-color: #f5c518;
+      animation: paymentSpin 0.85s linear infinite;
+    }
+
+    @keyframes paymentPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.04); opacity: 0.9; }
+    }
+
+    @keyframes paymentSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  </style>
+  <section class="panel p-6">
+    <h1 class="text-[2rem] font-extrabold sm:text-3xl lg:text-4xl">
+      <span class="title-top">Resumen de</span>
+      <span class="title-bottom">checkout</span>
+    </h1>
+    <p class="mt-3 text-sm text-slate-600">
+      Revisa tu pedido antes de pasar al pago.
+      {% if cart.event %}Evento: <span class="font-semibold">{{ cart.event.title }}</span>.{% endif %}
+    </p>
+
+    <div class="mt-5 space-y-4">
+      {% for item in cart_items %}
+        <article class="rounded-[1.25rem] border border-[#1F5FBF]/15 bg-white p-4 shadow-soft">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <span class="inline-flex rounded-full bg-[#0D2A5C] px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-white">
+                {% if item.item_type == 'PRODUCT' %}Producto{% else %}Boleta{% endif %}
+              </span>
+              <h2 class="mt-3 text-xl font-extrabold !text-[#0D2A5C]">{{ item.item_name }}</h2>
+              {% if item.item_type == 'PRODUCT' and item.product_variant.name != 'Unidad' %}
+                <p class="mt-2 text-sm text-slate-600">Variante: {{ item.product_variant.name }}</p>
+              {% endif %}
+            </div>
+            <div class="text-right">
+              <p class="text-sm text-slate-500">Cantidad</p>
+              <p class="text-lg font-bold !text-[#0D2A5C]">{{ item.quantity }}</p>
+            </div>
+          </div>
+          <div class="mt-3 flex flex-wrap gap-4 text-sm text-slate-600">
+            <span>Precio unitario: USD {{ item.unit_price_usd }}</span>
+            <span>Subtotal: USD {{ item.subtotal_usd }}</span>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+
+    <div class="mt-6 rounded-[1.5rem] border border-[#0D2A5C]/15 bg-[linear-gradient(135deg,#0D2A5C_0%,#1F5FBF_100%)] p-5 text-white shadow-glow">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p class="text-sm text-slate-100">{{ cart_items_count }} item{{ cart_items_count|pluralize }} en este pedido</p>
+          <p class="text-sm uppercase tracking-[0.2em] text-[#F5D77E]">Total a pagar</p>
+          <p class="mt-2 text-3xl font-black !text-white">USD {{ cart.total_usd }}</p>
+        </div>
+        <div class="flex flex-col gap-3 sm:items-end">
+          <form id="checkout-submit-form" method="post" action="{% url 'checkout_cart' %}">
+            {% csrf_token %}
+            <button id="checkout-submit-button" class="rounded-full bg-[#F5C518] px-6 py-3 font-bold text-[#0D2A5C] shadow-[0_18px_30px_rgba(245,197,24,0.28)]" type="submit">Pagar ahora</button>
+          </form>
+          <a class="text-sm font-semibold text-[#F5D77E]" href="{% url 'cart_detail' %}">Volver al carrito</a>
+        </div>
+      </div>
+      <p class="mt-3 text-sm text-slate-100">Al darle a pagar te enviaremos directo a Stripe. Las boletas QR y los codigos de reclamacion se emitiran solo cuando el pago sea confirmado.</p>
+    </div>
+  </section>
+  <div id="payment-loading-overlay" class="payment-loading-overlay" aria-hidden="true">
+    <div class="payment-loading-card">
+      <img class="payment-loading-logo" src="{% static 'imagenes/BoletasQR_20260603.png' %}" alt="Boletas QR">
+      <h2 class="mt-4 text-2xl font-extrabold !text-white">Redirigiendo a Stripe</h2>
+      <p class="mt-3 text-sm text-blue-50">Espera un momento mientras preparamos tu pago seguro.</p>
+      <div class="payment-loading-spinner" aria-hidden="true"></div>
+    </div>
+  </div>
+  <script>
+    (() => {
+      const checkoutForm = document.getElementById("checkout-submit-form");
+      const submitButton = document.getElementById("checkout-submit-button");
+      const loadingOverlay = document.getElementById("payment-loading-overlay");
+      if (!checkoutForm || !submitButton || !loadingOverlay) {
+        return;
+      }
+
+      checkoutForm.addEventListener("submit", () => {
+        submitButton.disabled = true;
+        submitButton.textContent = "Procesando...";
+        loadingOverlay.classList.add("is-visible");
+        loadingOverlay.setAttribute("aria-hidden", "false");
+      });
+    })();
+  </script>
+{% endblock %}

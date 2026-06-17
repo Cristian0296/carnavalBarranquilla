@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Verifica tu correo | Boletas QR{% endblock %}
+{% block content %}
+  <section class="mx-auto max-w-3xl">
+    <div class="panel p-6 lg:p-8">
+      <span class="inline-flex rounded-full bg-amber-100 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-amber-900">
+        Paso pendiente
+      </span>
+      <h1 class="mt-4 text-3xl font-semibold text-brand-900">Revisa tu correo</h1>
+      <p class="mt-3 text-base leading-7 text-slate-600">
+        Te enviamos un enlace de verificacion para activar tu cuenta.
+        {% if pending_email %}
+          Lo enviamos a <strong>{{ pending_email }}</strong>.
+        {% endif %}
+      </p>
+      <div class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-700">
+        Hasta confirmar tu correo no podras iniciar sesion.
+      </div>
+      <div class="mt-6 flex flex-col gap-3 sm:flex-row">
+        <a class="btn-primary w-full text-center sm:w-auto" href="{% url 'resend_email_verification' %}">Reenviar enlace</a>
+        <a class="btn-neutral w-full text-center sm:w-auto" href="{% url 'login' %}">Ir al login</a>
+      </div>
+    </div>
+  </section>
+{% endblock %}

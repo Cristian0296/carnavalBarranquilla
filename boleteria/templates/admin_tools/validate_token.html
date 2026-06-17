@@ -12,19 +12,25 @@
     </div>
 
     {% if popup_message %}
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4">
         <div aria-labelledby="popup-title" aria-modal="true" role="dialog" class="w-full max-w-lg rounded-[1.5rem] border border-white/25 bg-[linear-gradient(135deg,rgba(255,248,232,0.99)_0%,rgba(255,255,255,0.96)_100%)] p-6 shadow-glow">
           <div class="flex items-start justify-between gap-4">
             <h2 id="popup-title" class="text-xl font-semibold text-brand-900">{{ popup_title|default:"Informacion de la boleta" }}</h2>
-            <span class="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] {% if result == 'ok' %}bg-emerald-100 text-emerald-800{% else %}bg-rose-100 text-rose-700{% endif %}">
-              {% if result == 'ok' %}Valida{% else %}Invalida{% endif %}
+            <span class="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] {% if result == 'ok' %}bg-emerald-100 text-emerald-800{% elif 'ya fue utilizada' in popup_message %}bg-amber-100 text-amber-800{% else %}bg-rose-100 text-rose-700{% endif %}">
+              {% if result == 'ok' %}Valida{% elif "ya fue utilizada" in popup_message %}Ya usada{% else %}Invalida{% endif %}
             </span>
+          </div>
+          <div class="mt-4 rounded-[1.5rem] px-5 py-4 text-center {% if result == 'ok' %}border border-emerald-200 bg-emerald-50{% elif 'ya fue utilizada' in popup_message %}border border-amber-200 bg-amber-50{% else %}border border-rose-200 bg-rose-50{% endif %}">
+            <p class="text-xs font-black uppercase tracking-[0.32em] {% if result == 'ok' %}text-emerald-700{% elif 'ya fue utilizada' in popup_message %}text-amber-700{% else %}text-rose-700{% endif %}">Resultado del escaneo</p>
+            <p class="mt-2 text-3xl font-black {% if result == 'ok' %}text-emerald-800{% elif 'ya fue utilizada' in popup_message %}text-amber-800{% else %}text-rose-700{% endif %}">
+              {% if result == 'ok' %}ENTRADA VALIDA{% elif "ya fue utilizada" in popup_message %}ENTRADA YA USADA{% else %}QR NO VALIDO{% endif %}
+            </p>
           </div>
           {% if validation_info %}
             <div class="mt-4 rounded-2xl border border-[#1F5FBF]/10 bg-white/80 p-4 text-sm text-slate-700">
               <p>
                 <strong>Tipo de entrada:</strong>
-                <span class="inline-flex rounded-full px-2 py-1 text-xs font-bold uppercase tracking-[0.18em] {% if validation_info.ticket_type_code == 'vip' %}bg-[#1A1A1F] text-[#F5D77E]{% else %}bg-[#EAF2FF] text-[#0D2A5C]{% endif %}">
+                <span class="inline-flex rounded-full px-2 py-1 text-xs font-bold uppercase tracking-[0.18em] {% if validation_info.ticket_type_code == 'vip' %}bg-[#1A1A1F] !text-[#F5D77E]{% else %}bg-[#EAF2FF] text-[#0D2A5C]{% endif %}">
                   {{ validation_info.ticket_type_name }}
                 </span>
               </p>
@@ -45,7 +51,7 @@
               <p><strong>Estado:</strong> Invalida</p>
             </div>
           {% endif %}
-          <p class="mt-4 text-base text-slate-700">{{ popup_message }}</p>
+          <p class="mt-4 text-lg font-semibold {% if result == 'ok' %}text-emerald-800{% elif 'ya fue utilizada' in popup_message %}text-amber-800{% else %}text-rose-700{% endif %}">{{ popup_message }}</p>
           <div class="mt-5 flex justify-end">
             <a class="btn-primary" href="{% url 'validate_token' %}">Aceptar</a>
           </div>
@@ -104,11 +110,15 @@
       </section>
     </div>
   </section>
-  <div id="scanner-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4">
+  <div id="scanner-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/70 p-4">
     <div class="w-full max-w-lg rounded-[1.5rem] border border-white/25 bg-[linear-gradient(135deg,rgba(255,248,232,0.99)_0%,rgba(255,255,255,0.96)_100%)] p-6 shadow-glow">
       <div class="flex items-start justify-between gap-4">
         <h2 id="scanner-modal-title" class="text-xl font-semibold text-brand-900">Informacion de la boleta</h2>
         <span id="scanner-modal-badge" class="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] bg-rose-100 text-rose-700">Invalida</span>
+      </div>
+      <div id="scanner-modal-highlight" class="mt-4 rounded-[1.5rem] border border-rose-200 bg-rose-50 px-5 py-4 text-center">
+        <p id="scanner-modal-highlight-label" class="text-xs font-black uppercase tracking-[0.32em] text-rose-700">Resultado del escaneo</p>
+        <p id="scanner-modal-highlight-title" class="mt-2 text-3xl font-black text-rose-700">QR NO VALIDO</p>
       </div>
       <div class="mt-4 rounded-2xl border border-[#1F5FBF]/10 bg-white/80 p-4 text-sm text-slate-700">
         <p>
@@ -119,7 +129,7 @@
         <p><strong>Estado:</strong> <span id="scanner-modal-status">Invalida</span></p>
         <p><strong>Numero QR:</strong> <span id="scanner-modal-ticket">No disponible</span></p>
       </div>
-      <p id="scanner-modal-message" class="mt-4 text-base text-slate-700"></p>
+      <p id="scanner-modal-message" class="mt-4 text-lg font-semibold text-slate-700"></p>
       <div class="mt-5 flex justify-end">
         <button class="btn-primary" id="scanner-modal-accept" type="button">Aceptar</button>
       </div>
@@ -142,6 +152,9 @@
       var scannerModal = document.getElementById("scanner-modal");
       var scannerModalTitle = document.getElementById("scanner-modal-title");
       var scannerModalBadge = document.getElementById("scanner-modal-badge");
+      var scannerModalHighlight = document.getElementById("scanner-modal-highlight");
+      var scannerModalHighlightLabel = document.getElementById("scanner-modal-highlight-label");
+      var scannerModalHighlightTitle = document.getElementById("scanner-modal-highlight-title");
       var scannerModalType = document.getElementById("scanner-modal-type");
       var scannerModalEvent = document.getElementById("scanner-modal-event");
       var scannerModalStatus = document.getElementById("scanner-modal-status");
@@ -149,7 +162,7 @@
       var scannerModalMessage = document.getElementById("scanner-modal-message");
       var scannerModalAccept = document.getElementById("scanner-modal-accept");
       var scannerTechStatus = document.getElementById("scanner-tech-status");
-      if (!form || !tokenInput || !video || !cameraShell || !canvas || !startButton || !stopButton || !imageInput || !statusBox || !scannerModal || !scannerModalTitle || !scannerModalBadge || !scannerModalType || !scannerModalEvent || !scannerModalStatus || !scannerModalTicket || !scannerModalMessage || !scannerModalAccept || !scannerTechStatus) {
+      if (!form || !tokenInput || !video || !cameraShell || !canvas || !startButton || !stopButton || !imageInput || !statusBox || !scannerModal || !scannerModalTitle || !scannerModalBadge || !scannerModalHighlight || !scannerModalHighlightLabel || !scannerModalHighlightTitle || !scannerModalType || !scannerModalEvent || !scannerModalStatus || !scannerModalTicket || !scannerModalMessage || !scannerModalAccept || !scannerTechStatus) {
         return;
       }
 
@@ -306,20 +319,36 @@
         scannerModalTicket.textContent = payload.validation_info && payload.validation_info.ticket_number ? payload.validation_info.ticket_number : "No disponible";
         scannerModalMessage.textContent = payload.popup_message || payload.message || "";
         if (ticketTypeCode === "vip") {
-          scannerModalType.className = "inline-flex rounded-full px-2 py-1 text-xs font-bold uppercase tracking-[0.18em] bg-[#1A1A1F] text-[#F5D77E]";
+          scannerModalType.className = "inline-flex rounded-full px-2 py-1 text-xs font-bold uppercase tracking-[0.18em] bg-[#1A1A1F] !text-[#F5D77E]";
         } else {
           scannerModalType.className = "inline-flex rounded-full px-2 py-1 text-xs font-bold uppercase tracking-[0.18em] bg-[#EAF2FF] text-[#0D2A5C]";
         }
         if (status === "Valida") {
           scannerModalBadge.textContent = "Valida";
           scannerModalBadge.className = "rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] bg-emerald-100 text-emerald-800";
+          scannerModalHighlight.className = "mt-4 rounded-[1.5rem] border border-emerald-200 bg-emerald-50 px-5 py-4 text-center";
+          scannerModalHighlightLabel.className = "text-xs font-black uppercase tracking-[0.32em] text-emerald-700";
+          scannerModalHighlightTitle.className = "mt-2 text-3xl font-black text-emerald-800";
+          scannerModalHighlightTitle.textContent = "ENTRADA VALIDA";
+          scannerModalMessage.className = "mt-4 text-lg font-semibold text-emerald-800";
         } else if (status === "Ya usada") {
           scannerModalBadge.textContent = "Ya usada";
           scannerModalBadge.className = "rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] bg-amber-100 text-amber-800";
+          scannerModalHighlight.className = "mt-4 rounded-[1.5rem] border border-amber-200 bg-amber-50 px-5 py-4 text-center";
+          scannerModalHighlightLabel.className = "text-xs font-black uppercase tracking-[0.32em] text-amber-700";
+          scannerModalHighlightTitle.className = "mt-2 text-3xl font-black text-amber-800";
+          scannerModalHighlightTitle.textContent = "ENTRADA YA USADA";
+          scannerModalMessage.className = "mt-4 text-lg font-semibold text-amber-800";
         } else {
           scannerModalBadge.textContent = "Invalida";
           scannerModalBadge.className = "rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] bg-rose-100 text-rose-700";
+          scannerModalHighlight.className = "mt-4 rounded-[1.5rem] border border-rose-200 bg-rose-50 px-5 py-4 text-center";
+          scannerModalHighlightLabel.className = "text-xs font-black uppercase tracking-[0.32em] text-rose-700";
+          scannerModalHighlightTitle.className = "mt-2 text-3xl font-black text-rose-700";
+          scannerModalHighlightTitle.textContent = "QR NO VALIDO";
+          scannerModalMessage.className = "mt-4 text-lg font-semibold text-rose-700";
         }
+        scannerModalHighlightLabel.textContent = "Resultado del escaneo";
         scannerModal.classList.remove("hidden");
         scannerModal.classList.add("flex");
         isModalOpen = true;

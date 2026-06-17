@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Configuracion del sitio | Boletas QR{% endblock %}
+{% block content %}
+  <section class="panel p-6">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h1 class="text-[2rem] font-extrabold sm:text-3xl lg:text-4xl">
+          <span class="title-top">Configuracion</span>
+          <span class="title-bottom">del sitio</span>
+        </h1>
+        <p class="mt-2 text-sm text-slate-600">Administra los enlaces de redes, el video de inicio y los textos visibles del pie de pagina desde un solo lugar.</p>
+      </div>
+    </div>
+
+    <form class="mt-6 space-y-8" method="post">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="rounded-[1.25rem] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
+
+      <section class="rounded-[1.5rem] border border-[#1F5FBF]/12 bg-white/70 p-5">
+        <h2 class="text-xl font-extrabold !text-[#0D2A5C]">Redes sociales</h2>
+        <p class="mt-2 text-sm text-slate-600">Solo se mostraran en el footer las redes que tengan un enlace cargado.</p>
+        <div class="mt-4 grid gap-4 sm:grid-cols-2">
+          <p>
+            {{ form.whatsapp_url.label_tag }}
+            {{ form.whatsapp_url }}
+            {{ form.whatsapp_url.errors }}
+          </p>
+          <p>
+            {{ form.instagram_url.label_tag }}
+            {{ form.instagram_url }}
+            {{ form.instagram_url.errors }}
+          </p>
+          <p>
+            {{ form.facebook_url.label_tag }}
+            {{ form.facebook_url }}
+            {{ form.facebook_url.errors }}
+          </p>
+          <p>
+            {{ form.tiktok_url.label_tag }}
+            {{ form.tiktok_url }}
+            {{ form.tiktok_url.errors }}
+          </p>
+          <p>
+            {{ form.x_url.label_tag }}
+            {{ form.x_url }}
+            {{ form.x_url.errors }}
+          </p>
+          <p>
+            {{ form.telegram_url.label_tag }}
+            {{ form.telegram_url }}
+            {{ form.telegram_url.errors }}
+          </p>
+        </div>
+      </section>
+
+      <section class="rounded-[1.5rem] border border-[#1F5FBF]/12 bg-white/70 p-5">
+        <h2 class="text-xl font-extrabold !text-[#0D2A5C]">Video de inicio</h2>
+        <p class="mt-2 text-sm text-slate-600">Pega un enlace de YouTube y se mostrara automaticamente en el cuadro 16:9 de la pagina de inicio.</p>
+        <div class="mt-4 grid gap-4">
+          <div class="rounded-[1.15rem] border border-[#1F5FBF]/12 bg-[#F8FBFF] p-4">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#1F5FBF]">Enlace del video</p>
+            {{ form.home_video_url.label_tag }}
+            {{ form.home_video_url }}
+            {{ form.home_video_url.errors }}
+            <p class="mt-2 text-xs text-slate-500">Ejemplos validos: `youtube.com/watch?v=...` o `youtu.be/...`</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-[1.5rem] border border-[#1F5FBF]/12 bg-white/70 p-5">
+        <h2 class="text-xl font-extrabold !text-[#0D2A5C]">Textos del pie de pagina</h2>
+        <p class="mt-2 text-sm text-slate-600">Estos textos aparecen en el bloque inferior del sitio.</p>
+        <div class="mt-4 grid gap-4">
+          <p>
+            {{ form.footer_primary_text.label_tag }}
+            {{ form.footer_primary_text }}
+            {{ form.footer_primary_text.errors }}
+          </p>
+          <p>
+            {{ form.footer_tagline.label_tag }}
+            {{ form.footer_tagline }}
+            {{ form.footer_tagline.errors }}
+          </p>
+          <p>
+            {{ form.footer_copyright_text.label_tag }}
+            {{ form.footer_copyright_text }}
+            {{ form.footer_copyright_text.errors }}
+          </p>
+        </div>
+      </section>
+
+      <button class="btn-primary" type="submit">Guardar configuracion</button>
+    </form>
+  </section>
+{% endblock %}

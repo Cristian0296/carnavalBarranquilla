@@ -33,11 +33,12 @@
         {{ form.datetime.errors }}
       </p>
       <p>
-        {{ form.status.label_tag }}
-        {{ form.status }}
-        {{ form.status.errors }}
+        {{ form.end_datetime.label_tag }}
+        {{ form.end_datetime }}
+        {{ form.end_datetime.errors }}
       </p>
     </div>
+    <p class="mt-3 text-sm text-slate-600">Al guardar, el evento se publica inmediatamente. La fecha de inicio y la fecha de finalización controlan cuándo ocurre y cuándo deja de mostrarse en la página de eventos.</p>
 
     <div class="mt-6 rounded-[1.25rem] border border-[#1F5FBF]/15 bg-white/80 p-4">
       <h2 class="text-lg font-semibold text-[#0D2A5C]">Boleta general</h2>
@@ -57,12 +58,8 @@
 
     <div class="mt-4 rounded-[1.25rem] border border-[#1F5FBF]/15 bg-white/80 p-4">
       <h2 class="text-lg font-semibold text-[#0D2A5C]">Boleta VIP</h2>
+      <p class="mt-2 text-xs text-slate-500">Opcional. Deja precio y cantidad vacios si este evento no tendra VIP.</p>
       <div class="mt-3 grid gap-4 sm:grid-cols-2">
-        <p class="sm:col-span-2">
-          {{ form.enable_vip.label_tag }}
-          {{ form.enable_vip }}
-          {{ form.enable_vip.errors }}
-        </p>
         <p>
           {{ form.vip_price_usd.label_tag }}
           {{ form.vip_price_usd }}
@@ -74,6 +71,9 @@
           {{ form.vip_ticket_limit.errors }}
         </p>
       </div>
+    </div>
+    <div class="mt-4">
+      {% include "admin_tools/_event_products_editor.html" %}
     </div>
     <p>
       <label for="id_images">Imagenes del evento (maximo 3)</label>

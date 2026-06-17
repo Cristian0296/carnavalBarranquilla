@@ -1,0 +1,12 @@
+Hola {{ display_name }},
+
+Gracias por crear tu cuenta en Carnaval de Barranquilla ATL.
+
+Para activar tu acceso, confirma tu correo desde este enlace:
+{{ confirmation_url }}
+
+Este enlace estara disponible durante 24 horas.
+
+Si no creaste esta cuenta, puedes ignorar este correo.
+
+Carnaval de Barranquilla ATL

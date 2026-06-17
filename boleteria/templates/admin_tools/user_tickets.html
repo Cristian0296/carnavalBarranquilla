@@ -48,7 +48,7 @@
             </div>
           </div>
           <p class="mt-4 text-sm {% if card.is_vip %}text-slate-200{% else %}text-slate-600{% endif %}">
-            Ingresos del filtro actual: <strong>USD {{ card.revenue_total|floatformat:2 }}</strong>
+            Ingresos del filtro actual: <strong class="{% if card.is_vip %}text-white{% endif %}">USD {{ card.revenue_total|floatformat:2 }}</strong>
           </p>
         </article>
       {% endfor %}

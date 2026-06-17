@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Compra confirmada | Boletas QR{% endblock %}
+{% block content %}
+  <section class="panel p-6">
+    <h1 class="text-[2rem] font-extrabold sm:text-3xl lg:text-4xl">
+      <span class="title-top">Compra</span>
+      <span class="title-bottom">confirmada</span>
+    </h1>
+    <p class="mt-3"><strong>Evento:</strong> {{ event.title }}</p>
+    <p><strong>Orden:</strong> #{{ order.id }} ({{ order.get_status_display }})</p>
+    <p><strong>Total pagado (USD):</strong> {{ order.total_usd }}</p>
+
+    {% if product_redemption %}
+      <div class="mt-5 rounded-[1.25rem] border border-[#1F5FBF]/15 bg-[#F8FBFF] p-4">
+        <h2 class="text-lg font-semibold !text-[#0D2A5C]">Codigo de reclamacion</h2>
+        <p class="mt-2 text-sm text-slate-600">Presenta este codigo en el evento para reclamar tus productos.</p>
+        <p class="mt-3 text-2xl font-black !text-[#E53935]">{{ product_redemption.code }}</p>
+        <p class="mt-2 text-sm text-slate-600">Estado: {{ product_redemption.get_status_display }}</p>
+      </div>
+    {% endif %}
+
+    {% if tickets_with_qr %}
+      <h2 class="mt-6 text-xl font-semibold !text-[#0D2A5C]">Boletas generadas</h2>
+      <div class="mt-4 space-y-4">
+        {% for row in tickets_with_qr %}
+          <article class="rounded-[1.5rem] border p-5 {% if row.ticket.ticket_type.code == 'vip' %}border-[#C8A23A] bg-[linear-gradient(145deg,#0B0B0D_0%,#1A1A1F_55%,#2A2212_100%)] text-white shadow-[0_18px_40px_rgba(20,20,24,0.35)]{% else %}border-slate-200 bg-slate-50{% endif %}">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] {% if row.ticket.ticket_type.code == 'vip' %}bg-[#C8A23A] text-black{% else %}bg-[#EAF2FF] text-[#0D2A5C]{% endif %}">
+                  {{ row.ticket.ticket_type.name }}
+                </span>
+                <p class="mt-3 {% if row.ticket.ticket_type.code == 'vip' %}text-slate-100{% endif %}"><strong class="{% if row.ticket.ticket_type.code == 'vip' %}text-white{% endif %}">Numero:</strong> {{ row.ticket.raffle_number_display }}</p>
+                <p class="{% if row.ticket.ticket_type.code == 'vip' %}text-slate-100{% endif %}"><strong class="{% if row.ticket.ticket_type.code == 'vip' %}text-white{% endif %}">Estado:</strong> {{ row.ticket.get_status_display }}</p>
+              </div>
+            </div>
+            <div class="mt-4 inline-block rounded-[1.25rem] bg-white p-4 shadow-soft">
+              <img class="w-full max-w-44 rounded-lg border border-slate-200" src="{{ row.qr_data_uri }}" alt="QR boleta {{ row.ticket.ticket_uuid }}">
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="mt-6 flex flex-wrap gap-3">
+      <a class="btn-primary" href="{% url 'my_tickets' %}">Ver mis entradas</a>
+      <a class="btn-neutral !border-[#1F5FBF]/20 !bg-white !text-[#0D2A5C]" href="{% url 'event_list' %}">Volver a eventos</a>
+    </div>
+  </section>
+{% endblock %}

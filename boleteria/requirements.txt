@@ -5,3 +5,4 @@ django-allauth==65.11.2
 requests==2.32.5
 cryptography==45.0.7
 psycopg[binary]==3.2.10
+stripe==12.5.1

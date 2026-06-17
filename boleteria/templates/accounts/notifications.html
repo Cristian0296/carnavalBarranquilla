@@ -23,7 +23,7 @@
               {% endif %}
               <form method="post" action="{% url 'delete_notification' item.pk %}">
                 {% csrf_token %}
-                <button class="btn-neutral px-3 py-1 text-xs" type="submit">Eliminar</button>
+                <button class="btn-neutral px-3 py-1 text-xs !border-slate-300 !bg-white" style="color:#0D2A5C !important;" type="submit">Eliminar</button>
               </form>
             </div>
           </li>

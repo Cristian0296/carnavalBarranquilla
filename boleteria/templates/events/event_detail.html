@@ -35,14 +35,26 @@
     {% if event.category %}
       <p class="rounded-2xl bg-[#FFF8E8] px-4 py-3"><strong>Categoría:</strong> {{ event.category }}</p>
     {% endif %}
-    <p class="rounded-2xl bg-[#FFF8E8] px-4 py-3"><strong>Total de entradas QR para la venta:</strong> {{ total_ticket_stock }}</p>
-    <p class="rounded-2xl bg-[#FFF8E8] px-4 py-3"><strong>Boletas emitidas:</strong> {{ sold_tickets_count }}</p>
-    <p class="rounded-2xl bg-[#FFF8E8] px-4 py-3"><strong>Boletas disponibles:</strong> {{ remaining_tickets_count }}</p>
     <p class="rounded-2xl bg-[#FFF8E8] px-4 py-3"><strong>Clasificación de edad:</strong> {{ event.age_rating }}</p>
     <p class="rounded-2xl bg-[#FFF8E8] px-4 py-3"><strong>Inicio:</strong> {{ event.datetime }}</p>
     <p class="rounded-2xl bg-[#FFF8E8] px-4 py-3"><strong>Fin:</strong> {{ event.end_at }}</p>
     <p class="rounded-2xl bg-[#FFF8E8] px-4 py-3"><strong>Estado:</strong> {{ event.get_status_display }}</p>
   </div>
+
+  {% if user.is_staff %}
+    <div class="mt-5 grid gap-3 text-sm text-slate-700 sm:grid-cols-3">
+      <p class="rounded-2xl bg-[#FFF8E8] px-4 py-3"><strong>Total de entradas QR para la venta:</strong> {{ total_ticket_stock }}</p>
+      <p class="rounded-2xl bg-[#FFF8E8] px-4 py-3"><strong>Boletas emitidas:</strong> {{ sold_tickets_count }}</p>
+      <p class="rounded-2xl bg-[#FFF8E8] px-4 py-3"><strong>Boletas disponibles:</strong> {{ remaining_tickets_count }}</p>
+    </div>
+    <div class="mt-5 flex flex-wrap gap-3">
+      <a class="btn-primary" href="{% url 'update_event' event.pk %}">Editar evento</a>
+      <form class="js-confirm-delete" data-confirm-message="Si eliminas el evento se borrara todo lo relacionado, incluidas boletas QR, productos, codigos de reclamacion e imagenes. ¿Deseas continuar?" method="post" action="{% url 'delete_event' event.pk %}">
+        {% csrf_token %}
+        <button class="btn-neutral !border-[#FF7A00] !bg-[#FF7A00] !text-white hover:!border-[#E66F00] hover:!bg-[#E66F00] hover:!text-white" type="submit">Eliminar evento</button>
+      </form>
+    </div>
+  {% endif %}
 
   {% if user.is_staff and admin_ticket_type_summary %}
     <div class="mt-5 grid gap-4 lg:grid-cols-2">
@@ -50,7 +62,7 @@
         <article class="rounded-[1.5rem] border p-5 shadow-soft {% if card.is_vip %}border-[#C8A23A] bg-[linear-gradient(145deg,#0B0B0D_0%,#1A1A1F_55%,#2A2212_100%)] text-white{% else %}border-[#1F5FBF]/15 bg-white{% endif %}">
           <div class="flex items-center justify-between gap-3">
             <div>
-              <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] {% if card.is_vip %}bg-[#C8A23A] text-black{% else %}bg-[#EAF2FF] text-[#0D2A5C]{% endif %}">
+              <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] {% if card.is_vip %}bg-[#C8A23A] !text-white{% else %}bg-[#EAF2FF] text-[#0D2A5C]{% endif %}">
                 {{ card.ticket_type.name }}
               </span>
               <h2 class="mt-3 text-xl font-extrabold {% if card.is_vip %}!text-white{% else %}!text-[#0D2A5C]{% endif %}">
@@ -81,173 +93,168 @@
     </div>
   {% endif %}
 
-  {% if user.is_staff and can_manage_event_images %}
-    <h2 class="mt-6 text-lg font-semibold">Editar evento</h2>
-    {% if event_images %}
-      <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {% for img in event_images %}
-          <div class="rounded-[1.25rem] border border-[#1F5FBF]/15 bg-white p-3 shadow-soft">
-            <img class="h-36 w-full rounded bg-black object-contain p-1" src="{{ img.image.url }}" alt="Image {{ forloop.counter }} of the event">
-            <label class="mt-2 flex items-center gap-2 text-sm">
-              <input type="checkbox" name="delete_image_ids" value="{{ img.id }}" form="event-update-form">
-              Marcar para eliminar
-            </label>
-          </div>
-        {% endfor %}
-      </div>
-    {% endif %}
-    <form id="event-update-form" class="mt-3 space-y-2" method="post" enctype="multipart/form-data" action="{% url 'update_event' event.pk %}">
-      {% csrf_token %}
-      <div class="grid gap-4 sm:grid-cols-2">
-        <p class="sm:col-span-2">
-          {{ event_form.title.label_tag }}
-          {{ event_form.title }}
-          {{ event_form.title.errors }}
-        </p>
-        <p class="sm:col-span-2">
-          {{ event_form.description.label_tag }}
-          {{ event_form.description }}
-          {{ event_form.description.errors }}
-        </p>
-        <p>
-          {{ event_form.location.label_tag }}
-          {{ event_form.location }}
-          {{ event_form.location.errors }}
-        </p>
-        <p>
-          {{ event_form.organizer.label_tag }}
-          {{ event_form.organizer }}
-          {{ event_form.organizer.errors }}
-        </p>
-        <p>
-          {{ event_form.category.label_tag }}
-          {{ event_form.category }}
-          {{ event_form.category.errors }}
-        </p>
-        <p>
-          {{ event_form.age_rating.label_tag }}
-          {{ event_form.age_rating }}
-          {{ event_form.age_rating.errors }}
-        </p>
-        <p>
-          {{ event_form.datetime.label_tag }}
-          {{ event_form.datetime }}
-          {{ event_form.datetime.errors }}
-        </p>
-        <p>
-          {{ event_form.end_datetime.label_tag }}
-          {{ event_form.end_datetime }}
-          {{ event_form.end_datetime.errors }}
-        </p>
-        <p class="sm:col-span-2">
-          {{ event_form.status.label_tag }}
-          {{ event_form.status }}
-          {{ event_form.status.errors }}
-        </p>
-      </div>
-      <div class="rounded-[1.25rem] border border-[#1F5FBF]/15 bg-white p-4">
-        <h3 class="text-base font-semibold text-[#0D2A5C]">Boleta general</h3>
-        <div class="mt-3 grid gap-4 sm:grid-cols-2">
-          <p>
-            {{ event_form.general_price_usd.label_tag }}
-            {{ event_form.general_price_usd }}
-            {{ event_form.general_price_usd.errors }}
-          </p>
-          <p>
-            {{ event_form.general_ticket_limit.label_tag }}
-            {{ event_form.general_ticket_limit }}
-            {{ event_form.general_ticket_limit.errors }}
-          </p>
-        </div>
-      </div>
-      <div class="rounded-[1.25rem] border border-[#1F5FBF]/15 bg-white p-4">
-        <h3 class="text-base font-semibold text-[#0D2A5C]">Boleta VIP</h3>
-        <div class="mt-3 grid gap-4 sm:grid-cols-2">
-          <p class="sm:col-span-2">
-            {{ event_form.enable_vip.label_tag }}
-            {{ event_form.enable_vip }}
-            {{ event_form.enable_vip.errors }}
-          </p>
-          <p>
-            {{ event_form.vip_price_usd.label_tag }}
-            {{ event_form.vip_price_usd }}
-            {{ event_form.vip_price_usd.errors }}
-          </p>
-          <p>
-            {{ event_form.vip_ticket_limit.label_tag }}
-            {{ event_form.vip_ticket_limit }}
-            {{ event_form.vip_ticket_limit.errors }}
-          </p>
-        </div>
-      </div>
-      <label class="text-sm font-medium" for="id_images">Imagenes del evento (maximo 3)</label>
-      <input id="id_images" name="images" type="file" accept="image/*" multiple>
-      <p class="text-xs text-slate-500">Se permiten hasta 3 imagenes por evento. Recomendado: formato horizontal 16:9.</p>
-      <button class="btn-primary" type="submit">Guardar cambios</button>
-    </form>
-  {% endif %}
   {% if user.is_authenticated and not user.is_staff %}
     {% if event_has_finished %}
       <p class="mt-6 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">Este evento ya finalizo. Sus entradas QR ya no se pueden usar ni comprar.</p>
-    {% elif not event.has_started %}
-      <p class="mt-6 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">Este evento aun no ha comenzado. Podras comprar cuando llegue la hora de inicio.</p>
-    {% elif remaining_tickets_count <= 0 %}
-      <p class="mt-6 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">Este evento ya alcanzo el limite de entradas QR disponibles.</p>
     {% else %}
-      <div class="mt-6 grid gap-4 lg:grid-cols-2">
-        {% for card in ticket_type_cards %}
-          <article class="rounded-[1.5rem] border p-5 shadow-soft {% if card.is_vip %}border-[#C8A23A] bg-[linear-gradient(145deg,#0B0B0D_0%,#1A1A1F_55%,#2A2212_100%)] text-white{% else %}border-[#1F5FBF]/15 bg-white{% endif %}">
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] {% if card.is_vip %}bg-[#C8A23A] text-black{% else %}bg-[#EAF2FF] text-[#0D2A5C]{% endif %}">
-                  {{ card.ticket_type.name }}
-                </span>
-                <h3 class="mt-3 text-2xl font-extrabold {% if card.is_vip %}!text-white{% else %}!text-[#0D2A5C]{% endif %}">
-                  Entrada {{ card.ticket_type.name }}
-                </h3>
+      {% if remaining_tickets_count <= 0 %}
+        <p class="mt-6 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">Este evento ya alcanzo el limite de entradas QR disponibles.</p>
+      {% else %}
+        <div class="mt-6 grid gap-4 lg:grid-cols-2">
+          {% for card in ticket_type_cards %}
+            <article class="relative overflow-hidden rounded-[1.75rem] border p-5 shadow-soft {% if card.is_vip %}border-[#C8A23A] bg-[linear-gradient(145deg,#050506_0%,#15161C_52%,#2A2212_100%)] !text-slate-100{% else %}border-[#1F5FBF]/20 bg-[linear-gradient(145deg,#FFFFFF_0%,#F5FAFF_52%,#E9F4FF_100%)]{% endif %}">
+              <div class="pointer-events-none absolute right-4 top-4 h-16 w-16 opacity-20 {% if card.is_vip %}bg-[radial-gradient(circle,_rgba(245,215,126,0.95)_18%,_transparent_19%),radial-gradient(circle,_rgba(245,215,126,0.95)_18%,_transparent_19%)] bg-[length:12px_12px] bg-[position:0_0,6px_6px]{% else %}bg-[radial-gradient(circle,_rgba(13,42,92,0.9)_18%,_transparent_19%),radial-gradient(circle,_rgba(13,42,92,0.9)_18%,_transparent_19%)] bg-[length:12px_12px] bg-[position:0_0,6px_6px]{% endif %}"></div>
+              <div class="pointer-events-none absolute inset-x-5 top-5 flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.35em] {% if card.is_vip %}!text-white{% else %}text-[#1F5FBF]/70{% endif %}">
+                <span>QR PASS</span>
+                <span>{{ card.ticket_type.code|upper }}</span>
               </div>
-              <div class="text-right">
-                <p class="text-sm {% if card.is_vip %}text-[#E8D39A]{% else %}text-slate-500{% endif %}">Disponibles</p>
-                <p class="text-3xl font-black {% if card.is_vip %}!text-[#F5D77E]{% else %}!text-[#E53935]{% endif %}">{{ card.remaining_count }}</p>
+              <div class="mt-6 flex items-center justify-between gap-3">
+                <div>
+                  <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] {% if card.is_vip %}bg-[#C8A23A] text-black{% else %}bg-[#EAF2FF] text-[#0D2A5C]{% endif %}">
+                    {{ card.ticket_type.name }}
+                  </span>
+                  <h3 class="mt-3 text-2xl font-extrabold {% if card.is_vip %}!text-white{% else %}!text-[#0D2A5C]{% endif %}">
+                    Entrada {{ card.ticket_type.name }}
+                  </h3>
+                </div>
+                <div class="rounded-[1.15rem] border px-4 py-3 text-right {% if card.is_vip %}border-[#C8A23A]/40 bg-white/5{% else %}border-[#1F5FBF]/10 bg-white/70{% endif %}">
+                  <p class="text-[11px] font-bold uppercase tracking-[0.22em] {% if card.is_vip %}!text-white{% else %}text-slate-500{% endif %}">Disponibles</p>
+                  <p class="mt-1 text-3xl font-black {% if card.is_vip %}!text-[#F5D77E]{% else %}!text-[#E53935]{% endif %}">{{ card.remaining_count }}</p>
+                </div>
               </div>
-            </div>
-            <p class="mt-4 text-sm {% if card.is_vip %}text-slate-200{% else %}text-slate-600{% endif %}">Precio unitario: USD {{ card.ticket_type.price_usd }}</p>
-            <p class="mt-1 text-sm {% if card.is_vip %}text-slate-300{% else %}text-slate-600{% endif %}">Emitidas: {{ card.sold_count }} de {{ card.ticket_type.stock_total }}</p>
-            <form class="mt-4 space-y-3 js-ticket-purchase-form" method="post" action="{% url 'purchase_event' event.pk %}">
-              {% csrf_token %}
-              <input type="hidden" name="ticket_type" value="{{ card.ticket_type.code }}">
-              <label for="quantity-{{ card.ticket_type.code }}">Numero de entradas QR</label>
-              <input class="rounded-xl border border-[#1F5FBF]/20 px-3 py-2 {% if card.is_vip %}!border-[#C8A23A]/50 !bg-white !text-black{% endif %}" id="quantity-{{ card.ticket_type.code }}" name="quantity" type="number" min="1" max="{{ card.max_purchase_quantity }}" value="1" required>
-              <p class="text-sm font-semibold {% if card.is_vip %}text-[#F5D77E]{% else %}text-emerald-700{% endif %} js-estimated-total" data-unit-price="{{ card.ticket_type.price_usd|unlocalize }}">Total estimado: USD {{ card.ticket_type.price_usd }}</p>
-              <button class="{% if card.is_vip %}rounded-full bg-[linear-gradient(135deg,#C8A23A_0%,#F5D77E_100%)] px-5 py-3 font-bold text-black shadow-[0_16px_30px_rgba(200,162,58,0.32)] hover:scale-[1.04]{% else %}btn-primary{% endif %}" type="submit">
-                Comprar {{ card.ticket_type.name }}
-              </button>
-            </form>
-          </article>
-        {% endfor %}
-      </div>
+              <div class="mt-4 grid gap-3 sm:grid-cols-[1.1fr_0.9fr]">
+                <div class="rounded-[1.15rem] border p-4 {% if card.is_vip %}border-white/10 bg-white/5{% else %}border-[#1F5FBF]/10 bg-white/75{% endif %}">
+                  <p class="text-[11px] font-bold uppercase tracking-[0.22em] {% if card.is_vip %}!text-white{% else %}text-slate-500{% endif %}">Precio unitario</p>
+                  <p class="mt-2 text-3xl font-black {% if card.is_vip %}!text-white{% else %}!text-[#0D2A5C]{% endif %}">USD {{ card.ticket_type.price_usd }}</p>
+                </div>
+                <div class="rounded-[1.15rem] border p-4 {% if card.is_vip %}border-white/10 bg-black/10{% else %}border-[#1F5FBF]/10 bg-[#F8FBFF]{% endif %}">
+                  <p class="text-[11px] font-bold uppercase tracking-[0.22em] {% if card.is_vip %}!text-slate-300{% else %}text-slate-500{% endif %}">Emitidas</p>
+                  <p class="mt-2 text-xl font-bold {% if card.is_vip %}!text-[#F5D77E]{% else %}!text-[#0D2A5C]{% endif %}">{{ card.sold_count }} <span class="text-sm font-semibold {% if card.is_vip %}!text-slate-300{% else %}text-slate-500{% endif %}">de {{ card.ticket_type.stock_total }}</span></p>
+                </div>
+              </div>
+              <form class="mt-4 space-y-3 js-ticket-purchase-form" method="post" action="{% url 'add_ticket_to_cart' event.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <input type="hidden" name="ticket_type" value="{{ card.ticket_type.code }}">
+                <div class="rounded-[1.25rem] border border-dashed p-4 {% if card.is_vip %}border-[#C8A23A]/40 bg-white/5{% else %}border-[#1F5FBF]/18 bg-white/70{% endif %}">
+                  <label class="{% if card.is_vip %}!text-white{% endif %}" for="quantity-{{ card.ticket_type.code }}">Numero de entradas QR</label>
+                  <input class="mt-2 rounded-xl border border-[#1F5FBF]/20 px-3 py-2 {% if card.is_vip %}!border-[#C8A23A]/50 !bg-white !text-black{% endif %}" id="quantity-{{ card.ticket_type.code }}" name="quantity" type="number" min="1" max="{{ card.max_purchase_quantity }}" value="1" required>
+                  <p class="mt-3 text-sm font-semibold {% if card.is_vip %}!text-[#F5D77E]{% else %}text-emerald-700{% endif %} js-estimated-total" data-unit-price="{{ card.ticket_type.price_usd|unlocalize }}">Total estimado: USD {{ card.ticket_type.price_usd }}</p>
+                </div>
+                <button class="w-full {% if card.is_vip %}rounded-full bg-[linear-gradient(135deg,#C8A23A_0%,#F5D77E_100%)] px-5 py-3 font-bold !text-white shadow-[0_16px_30px_rgba(200,162,58,0.32)] hover:scale-[1.04]{% else %}btn-primary{% endif %}" type="submit">
+                  Agregar {{ card.ticket_type.name }} al carrito
+                </button>
+              </form>
+            </article>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% if product_cards %}
+        <div class="mt-8">
+          <div class="mb-4">
+            <h2 class="text-2xl font-extrabold !text-[#0D2A5C]">Productos del evento</h2>
+            <p class="mt-2 text-sm text-slate-600">Agrega articulos opcionales para reclamarlos presencialmente en el evento.</p>
+          </div>
+          <div class="grid gap-4 lg:grid-cols-2">
+            {% for card in product_cards %}
+              <article class="rounded-[1.75rem] border border-[#1F5FBF]/20 bg-[linear-gradient(145deg,#FFFFFF_0%,#F5FAFF_52%,#E9F4FF_100%)] p-5 shadow-soft">
+                {% if card.product.image %}
+                  <div class="mb-4 aspect-[4/3] overflow-hidden rounded-[1.25rem] border border-[#1F5FBF]/12 bg-[#EAF2FF]">
+                    <img class="h-full w-full object-cover" src="{{ card.product.image.url }}" alt="{{ card.product.name }}">
+                  </div>
+                {% endif %}
+                <div class="flex items-start justify-between gap-4">
+                  <div>
+                    <span class="inline-flex rounded-full bg-[#EAF2FF] px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-[#0D2A5C]">Producto</span>
+                    <h3 class="mt-3 text-2xl font-extrabold !text-[#0D2A5C]">{{ card.product.name }}</h3>
+                    {% if card.product.description %}
+                      <p class="mt-2 text-sm leading-6 text-slate-600">{{ card.product.description }}</p>
+                    {% endif %}
+                  </div>
+                  <div class="rounded-[1.15rem] border border-[#1F5FBF]/10 bg-white/70 px-4 py-3 text-right">
+                    <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500">Precio</p>
+                    <p class="mt-1 text-3xl font-black !text-[#0D2A5C]">USD {{ card.product.price_usd }}</p>
+                  </div>
+                </div>
+                <form class="mt-4 space-y-3" method="post" action="{% url 'add_product_to_cart' event.pk %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  <div class="rounded-[1.25rem] border border-dashed border-[#1F5FBF]/18 bg-white/70 p-4">
+                    {% if card.has_variants %}
+                      <label for="product-variant-{{ card.product.id }}">Variante</label>
+                      <select class="mt-2" id="product-variant-{{ card.product.id }}" name="product_variant" required>
+                        {% for variant_row in card.variants %}
+                          <option value="{{ variant_row.variant.id }}" {% if variant_row.variant.id == card.default_variant.variant.id %}selected{% endif %}>
+                            {{ variant_row.variant.name }} - {{ variant_row.remaining_stock }} disponibles
+                          </option>
+                        {% endfor %}
+                      </select>
+                    {% else %}
+                      <input type="hidden" name="product_variant" value="{{ card.default_variant.variant.id }}">
+                      <p class="text-sm text-slate-600">Disponibles: <span class="font-semibold text-[#0D2A5C]">{{ card.default_variant.remaining_stock }}</span></p>
+                    {% endif %}
+                    <label class="mt-3 block" for="product-quantity-{{ card.product.id }}">Cantidad</label>
+                    <input class="mt-2 rounded-xl border border-[#1F5FBF]/20 px-3 py-2" id="product-quantity-{{ card.product.id }}" name="quantity" type="number" min="1" max="20" value="1" required>
+                  </div>
+                  <button class="btn-primary w-full" type="submit">Agregar {{ card.product.name }} al carrito</button>
+                </form>
+              </article>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
     {% endif %}
   {% elif not user.is_authenticated %}
     <p class="mt-6 text-xl font-semibold" style="color:#FF4D00 !important;">Debes iniciar sesión para comprar.</p>
-    {% if not event.has_started and not event_has_finished %}
-      <p class="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">Este evento aun no ha comenzado. La compra se habilitara cuando llegue la hora de inicio.</p>
-    {% endif %}
     {% if ticket_type_cards %}
       <div class="mt-4 grid gap-4 lg:grid-cols-2">
         {% for card in ticket_type_cards %}
-          <article class="rounded-[1.5rem] border p-5 shadow-soft {% if card.is_vip %}border-[#C8A23A] bg-[linear-gradient(145deg,#0B0B0D_0%,#1A1A1F_55%,#2A2212_100%)] text-white{% else %}border-[#1F5FBF]/15 bg-white{% endif %}">
-            <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] {% if card.is_vip %}bg-[#C8A23A] text-black{% else %}bg-[#EAF2FF] text-[#0D2A5C]{% endif %}">
+          <article class="relative overflow-hidden rounded-[1.75rem] border p-5 shadow-soft {% if card.is_vip %}border-[#C8A23A] bg-[linear-gradient(145deg,#050506_0%,#15161C_52%,#2A2212_100%)] text-white{% else %}border-[#1F5FBF]/20 bg-[linear-gradient(145deg,#FFFFFF_0%,#F5FAFF_52%,#E9F4FF_100%)]{% endif %}">
+            <div class="pointer-events-none absolute right-4 top-4 h-14 w-14 opacity-20 {% if card.is_vip %}bg-[radial-gradient(circle,_rgba(245,215,126,0.95)_18%,_transparent_19%),radial-gradient(circle,_rgba(245,215,126,0.95)_18%,_transparent_19%)] bg-[length:12px_12px] bg-[position:0_0,6px_6px]{% else %}bg-[radial-gradient(circle,_rgba(13,42,92,0.9)_18%,_transparent_19%),radial-gradient(circle,_rgba(13,42,92,0.9)_18%,_transparent_19%)] bg-[length:12px_12px] bg-[position:0_0,6px_6px]{% endif %}"></div>
+            <div class="text-[10px] font-bold uppercase tracking-[0.35em] {% if card.is_vip %}!text-white{% else %}text-[#1F5FBF]/70{% endif %}">QR PASS</div>
+            <span class="mt-3 inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] {% if card.is_vip %}bg-[#C8A23A] !text-white{% else %}bg-[#EAF2FF] text-[#0D2A5C]{% endif %}">
               {{ card.ticket_type.name }}
             </span>
-            <p class="mt-4 text-sm {% if card.is_vip %}text-slate-200{% else %}text-slate-600{% endif %}">Precio unitario: USD {{ card.ticket_type.price_usd }}</p>
-            <p class="mt-1 text-sm {% if card.is_vip %}text-slate-300{% else %}text-slate-600{% endif %}">Disponibles: {{ card.remaining_count }}</p>
+            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+              <div class="rounded-[1.15rem] border p-4 {% if card.is_vip %}border-white/10 bg-white/5{% else %}border-[#1F5FBF]/10 bg-white/75{% endif %}">
+                <p class="text-[11px] font-bold uppercase tracking-[0.22em] {% if card.is_vip %}!text-white{% else %}text-slate-500{% endif %}">Precio</p>
+                <p class="mt-2 text-2xl font-black {% if card.is_vip %}!text-white{% else %}!text-[#0D2A5C]{% endif %}">USD {{ card.ticket_type.price_usd }}</p>
+              </div>
+              <div class="rounded-[1.15rem] border p-4 {% if card.is_vip %}border-white/10 bg-black/10{% else %}border-[#1F5FBF]/10 bg-[#F8FBFF]{% endif %}">
+                <p class="text-[11px] font-bold uppercase tracking-[0.22em] {% if card.is_vip %}!text-white{% else %}text-slate-500{% endif %}">Disponibles</p>
+                <p class="mt-2 text-2xl font-black {% if card.is_vip %}!text-[#F5D77E]{% else %}!text-[#E53935]{% endif %}">{{ card.remaining_count }}</p>
+              </div>
+            </div>
           </article>
         {% endfor %}
       </div>
     {% endif %}
+    {% if product_cards %}
+      <div class="mt-8">
+        <h2 class="text-2xl font-extrabold !text-[#0D2A5C]">Productos del evento</h2>
+        <div class="mt-4 grid gap-4 lg:grid-cols-2">
+          {% for card in product_cards %}
+            <article class="rounded-[1.75rem] border border-[#1F5FBF]/20 bg-[linear-gradient(145deg,#FFFFFF_0%,#F5FAFF_52%,#E9F4FF_100%)] p-5 shadow-soft">
+              {% if card.product.image %}
+                <div class="mb-4 aspect-[4/3] overflow-hidden rounded-[1.25rem] border border-[#1F5FBF]/12 bg-[#EAF2FF]">
+                  <img class="h-full w-full object-cover" src="{{ card.product.image.url }}" alt="{{ card.product.name }}">
+                </div>
+              {% endif %}
+              <span class="inline-flex rounded-full bg-[#EAF2FF] px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-[#0D2A5C]">Producto</span>
+              <h3 class="mt-3 text-2xl font-extrabold !text-[#0D2A5C]">{{ card.product.name }}</h3>
+              {% if card.product.description %}
+                <p class="mt-2 text-sm leading-6 text-slate-600">{{ card.product.description }}</p>
+              {% endif %}
+              <p class="mt-3 text-xl font-black !text-[#0D2A5C]">USD {{ card.product.price_usd }}</p>
+            </article>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
     <div class="mt-3 flex flex-wrap gap-3">
-      <a class="btn-primary px-5 py-2 text-base" href="{% url 'login' %}">Iniciar sesión</a>
-      <a class="btn-neutral px-5 py-2 text-base" href="{% url 'signup' %}">Registrarse</a>
+      <a class="btn-primary px-5 py-2 text-base" href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}">Iniciar sesión</a>
+      <a class="inline-flex items-center justify-center rounded-full bg-[linear-gradient(135deg,#C8A23A_0%,#F5D77E_100%)] px-5 py-2 text-base font-bold leading-none !text-white shadow-[0_16px_30px_rgba(200,162,58,0.32)] transition hover:scale-[1.03]" href="{% url 'signup' %}">Registrarse</a>
     </div>
   {% endif %}
 

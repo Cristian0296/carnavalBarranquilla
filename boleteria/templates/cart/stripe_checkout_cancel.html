@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Pago cancelado | Boletas QR{% endblock %}
+{% block content %}
+  <section class="panel p-6">
+    <h1 class="text-[2rem] font-extrabold sm:text-3xl lg:text-4xl">
+      <span class="title-top">Pago</span>
+      <span class="title-bottom">cancelado</span>
+    </h1>
+    <p class="mt-3 text-slate-700">La orden sigue pendiente. Puedes volver a Stripe cuando quieras o regresar al carrito para ajustar el pedido.</p>
+    {% if order %}
+      <p class="mt-4"><strong>Orden:</strong> #{{ order.id }} ({{ order.get_status_display }})</p>
+      <p><strong>Evento:</strong> {{ order.event.title }}</p>
+      <p><strong>Total:</strong> USD {{ order.total_usd }}</p>
+    {% endif %}
+    <div class="mt-6 flex flex-wrap gap-3">
+      {% if order %}
+        <form method="post" action="{% url 'start_stripe_checkout' order.id %}">
+          {% csrf_token %}
+          <button class="btn-primary" type="submit">Intentar pago otra vez</button>
+        </form>
+      {% endif %}
+      <a class="btn-neutral !border-[#1F5FBF]/20 !bg-white !text-[#0D2A5C]" href="{% url 'cart_detail' %}">Volver al carrito</a>
+    </div>
+  </section>
+{% endblock %}

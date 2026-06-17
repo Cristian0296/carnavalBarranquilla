@@ -1,10 +1,12 @@
 ﻿from django import forms
+import json
+
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.utils import timezone
 
-from .models import Event, EventTicketType, Profile, Review
+from .models import Event, EventTicketType, MomentBlock, Product, ProductVariant, Profile, Review, SiteSettings
 
 
 def _clean_digits_only(value, required_message, invalid_message):
@@ -34,10 +36,6 @@ class EventTicketTypesFormMixin:
             initial=100,
             label="Cantidad boleta general",
         )
-        self.fields["enable_vip"] = forms.BooleanField(
-            required=False,
-            label="Activar boleta VIP",
-        )
         self.fields["vip_price_usd"] = forms.DecimalField(
             required=False,
             min_value=0.01,
@@ -50,6 +48,14 @@ class EventTicketTypesFormMixin:
             min_value=1,
             label="Cantidad boleta VIP",
         )
+        self.fields["products_enabled"] = forms.BooleanField(
+            required=False,
+            label="Vender productos en este evento",
+        )
+        self.fields["products_payload"] = forms.CharField(
+            required=False,
+            widget=forms.HiddenInput(),
+        )
         general_type = self._get_existing_ticket_type(EventTicketType.Code.GENERAL)
         vip_type = self._get_existing_ticket_type(EventTicketType.Code.VIP)
         if general_type:
@@ -59,10 +65,51 @@ class EventTicketTypesFormMixin:
             self.fields["general_price_usd"].initial = self.instance.unit_price_usd
             self.fields["general_ticket_limit"].initial = self.instance.ticket_limit
 
-        self.fields["enable_vip"].initial = bool(vip_type and vip_type.is_active)
         if vip_type:
             self.fields["vip_price_usd"].initial = vip_type.price_usd
             self.fields["vip_ticket_limit"].initial = vip_type.stock_total
+        existing_products_payload = self._serialize_existing_products()
+        if existing_products_payload:
+            self.fields["products_enabled"].initial = True
+            self.fields["products_payload"].initial = json.dumps(existing_products_payload)
+
+    def _serialize_existing_products(self):
+        if not getattr(self.instance, "pk", None):
+            return []
+        products = []
+        for product in self.instance.products.prefetch_related("variants").order_by("name", "id"):
+            variants = []
+            simple_stock = 0
+            simple_variant_id = None
+            for variant in product.variants.order_by("name", "id"):
+                if product.has_variants:
+                    variants.append(
+                        {
+                            "id": variant.pk,
+                            "name": variant.name,
+                            "stock_total": variant.stock_total,
+                            "is_active": variant.is_active,
+                        }
+                    )
+                elif variant.name == "Unidad":
+                    simple_stock = variant.stock_total
+                    simple_variant_id = variant.pk
+            products.append(
+                {
+                    "id": product.pk,
+                    "name": product.name,
+                    "description": product.description,
+                    "price_usd": str(product.price_usd),
+                    "is_active": product.is_active,
+                    "has_variants": product.has_variants,
+                    "image_input_key": f"product_image_{product.pk}",
+                    "image_url": product.image.url if product.image else "",
+                    "simple_stock": simple_stock,
+                    "simple_variant_id": simple_variant_id,
+                    "variants": variants,
+                }
+            )
+        return products
 
     def _get_existing_ticket_type(self, code):
         if not getattr(self.instance, "pk", None):
@@ -91,22 +138,21 @@ class EventTicketTypesFormMixin:
 
     def clean(self):
         cleaned_data = super().clean()
-        enable_vip = bool(cleaned_data.get("enable_vip"))
         vip_price = cleaned_data.get("vip_price_usd")
         vip_limit = cleaned_data.get("vip_ticket_limit")
         vip_sold_tickets = self._issued_tickets_count_for(EventTicketType.Code.VIP)
+        has_vip_price = vip_price is not None
+        has_vip_limit = vip_limit not in (None, "")
 
-        if enable_vip:
-            if vip_price is None:
-                self.add_error("vip_price_usd", "Debes indicar el precio de la boleta VIP.")
-            if vip_limit in (None, ""):
-                self.add_error("vip_ticket_limit", "Debes indicar la cantidad de boletas VIP.")
-        else:
-            if vip_sold_tickets > 0:
-                self.add_error(
-                    "enable_vip",
-                    "No puedes desactivar VIP porque ya existen boletas VIP emitidas.",
-                )
+        if has_vip_price and not has_vip_limit:
+            self.add_error("vip_ticket_limit", "Debes indicar la cantidad de boletas VIP.")
+        if has_vip_limit and not has_vip_price:
+            self.add_error("vip_price_usd", "Debes indicar el precio de la boleta VIP.")
+
+        if not has_vip_price and not has_vip_limit and vip_sold_tickets > 0:
+            message = "No puedes quitar VIP porque ya existen boletas VIP emitidas."
+            self.add_error("vip_price_usd", message)
+            self.add_error("vip_ticket_limit", message)
 
         if vip_limit not in (None, "") and vip_limit < vip_sold_tickets:
             self.add_error(
@@ -114,16 +160,129 @@ class EventTicketTypesFormMixin:
                 f"No puedes definir menos de {vip_sold_tickets} entradas VIP porque ya fueron emitidas.",
             )
 
+        try:
+            cleaned_data["parsed_products"] = self._clean_products_payload(cleaned_data)
+        except forms.ValidationError as exc:
+            self.add_error("products_payload", exc)
+
         return cleaned_data
+
+    def _clean_products_payload(self, cleaned_data):
+        products_enabled = bool(cleaned_data.get("products_enabled"))
+        raw_payload = (cleaned_data.get("products_payload") or "").strip()
+        if not products_enabled:
+            return []
+        if not raw_payload:
+            raise forms.ValidationError("Debes agregar al menos un producto o desactivar la venta de productos.")
+        try:
+            parsed = json.loads(raw_payload)
+        except json.JSONDecodeError as exc:
+            raise forms.ValidationError(f"No se pudo leer la configuracion de productos: {exc.msg}.")
+        if not isinstance(parsed, list) or not parsed:
+            raise forms.ValidationError("Debes agregar al menos un producto.")
+
+        normalized_products = []
+        for index, raw_product in enumerate(parsed, start=1):
+            if not isinstance(raw_product, dict):
+                raise forms.ValidationError(f"El producto #{index} no tiene un formato valido.")
+            name = (raw_product.get("name") or "").strip()
+            if not name:
+                raise forms.ValidationError(f"El producto #{index} debe tener nombre.")
+            description = (raw_product.get("description") or "").strip()
+            price_raw = str(raw_product.get("price_usd") or "").strip()
+            try:
+                price_usd = float(price_raw)
+            except (TypeError, ValueError):
+                raise forms.ValidationError(f'El producto "{name}" debe tener un precio valido.')
+            if price_usd <= 0:
+                raise forms.ValidationError(f'El producto "{name}" debe tener un precio mayor a 0.')
+
+            normalized_product = {
+                "id": int(raw_product["id"]) if str(raw_product.get("id")).isdigit() else None,
+                "name": name,
+                "description": description,
+                "price_usd": price_raw,
+                "is_active": bool(raw_product.get("is_active", True)),
+                "has_variants": bool(raw_product.get("has_variants")),
+                "image_input_key": (raw_product.get("image_input_key") or "").strip(),
+                "variants": [],
+            }
+
+            if normalized_product["has_variants"]:
+                raw_variants = raw_product.get("variants") or []
+                if not isinstance(raw_variants, list) or not raw_variants:
+                    raise forms.ValidationError(f'El producto "{name}" debe tener al menos una variante.')
+                has_active_stock = False
+                seen_variant_names = set()
+                for raw_variant in raw_variants:
+                    if not isinstance(raw_variant, dict):
+                        raise forms.ValidationError(f'El producto "{name}" tiene una variante invalida.')
+                    variant_name = (raw_variant.get("name") or "").strip()
+                    if not variant_name:
+                        raise forms.ValidationError(f'Cada variante del producto "{name}" debe tener nombre.')
+                    variant_name_key = variant_name.casefold()
+                    if variant_name_key in seen_variant_names:
+                        raise forms.ValidationError(
+                            f'El producto "{name}" no puede tener variantes repetidas: "{variant_name}".'
+                        )
+                    seen_variant_names.add(variant_name_key)
+                    try:
+                        stock_total = int(raw_variant.get("stock_total"))
+                    except (TypeError, ValueError):
+                        raise forms.ValidationError(
+                            f'La variante "{variant_name}" del producto "{name}" debe tener stock valido.'
+                        )
+                    if stock_total < 0:
+                        raise forms.ValidationError(
+                            f'La variante "{variant_name}" del producto "{name}" no puede tener stock negativo.'
+                        )
+                    variant_is_active = bool(raw_variant.get("is_active", True))
+                    if variant_is_active and stock_total > 0:
+                        has_active_stock = True
+                    normalized_product["variants"].append(
+                        {
+                            "id": int(raw_variant["id"]) if str(raw_variant.get("id")).isdigit() else None,
+                            "name": variant_name,
+                            "stock_total": stock_total,
+                            "is_active": variant_is_active,
+                        }
+                    )
+                if not has_active_stock:
+                    raise forms.ValidationError(
+                        f'El producto "{name}" debe tener al menos una variante activa con stock.'
+                    )
+            else:
+                try:
+                    simple_stock = int(raw_product.get("simple_stock"))
+                except (TypeError, ValueError):
+                    raise forms.ValidationError(f'El producto "{name}" debe tener stock valido.')
+                if simple_stock <= 0:
+                    raise forms.ValidationError(f'El producto "{name}" debe tener stock mayor a 0.')
+                normalized_product["variants"].append(
+                    {
+                        "id": int(raw_product["simple_variant_id"])
+                        if str(raw_product.get("simple_variant_id")).isdigit()
+                        else None,
+                        "name": "Unidad",
+                        "stock_total": simple_stock,
+                        "is_active": normalized_product["is_active"],
+                    }
+                )
+
+            normalized_products.append(normalized_product)
+
+        return normalized_products
 
     def save(self, commit=True):
         event = super().save(commit=False)
         event.unit_price_usd = self.cleaned_data["general_price_usd"]
         event.ticket_limit = self.cleaned_data["general_ticket_limit"]
+        event.status = Event.Status.ACTIVE
         if commit:
             event.save()
             self._save_m2m()
             self._save_ticket_types(event)
+            self._save_products(event)
         return event
 
     def _save_ticket_types(self, event):
@@ -145,7 +304,10 @@ class EventTicketTypesFormMixin:
             "name": "VIP",
             "price_usd": self.cleaned_data.get("vip_price_usd") or self.cleaned_data["general_price_usd"],
             "stock_total": self.cleaned_data.get("vip_ticket_limit") or 1,
-            "is_active": bool(self.cleaned_data.get("enable_vip")),
+            "is_active": bool(
+                self.cleaned_data.get("vip_price_usd") is not None
+                and self.cleaned_data.get("vip_ticket_limit") not in (None, "")
+            ),
             "display_order": 2,
             "number_prefix": "VIP",
         }
@@ -164,47 +326,51 @@ class EventTicketTypesFormMixin:
         if updated_fields:
             vip_type.save(update_fields=updated_fields)
 
+    def _save_products(self, event, uploaded_files=None):
+        products_data = self.cleaned_data.get("parsed_products", [])
+        existing_products = {product.pk: product for product in event.products.prefetch_related("variants")}
+        kept_product_ids = []
+        for product_data in products_data:
+            product = existing_products.get(product_data["id"])
+            if product is None:
+                product = Product(event=event)
+            product.name = product_data["name"]
+            product.description = product_data["description"]
+            product.price_usd = product_data["price_usd"]
+            product.is_active = product_data["is_active"]
+            product.has_variants = product_data["has_variants"]
+            image_input_key = product_data.get("image_input_key")
+            if uploaded_files and image_input_key:
+                image_file = uploaded_files.get(image_input_key)
+                if image_file:
+                    product.image = image_file
+            product.save()
+            kept_product_ids.append(product.pk)
+
+            existing_variants = {variant.pk: variant for variant in product.variants.all()}
+            kept_variant_ids = []
+            for variant_data in product_data["variants"]:
+                variant = existing_variants.get(variant_data["id"])
+                if variant is None:
+                    variant = ProductVariant(product=product)
+                variant.name = variant_data["name"]
+                variant.stock_total = variant_data["stock_total"]
+                variant.is_active = variant_data["is_active"]
+                variant.save()
+                kept_variant_ids.append(variant.pk)
+
+            if kept_variant_ids:
+                product.variants.exclude(pk__in=kept_variant_ids).delete()
+            else:
+                product.variants.all().delete()
+
+        if kept_product_ids:
+            event.products.exclude(pk__in=kept_product_ids).delete()
+        else:
+            event.products.all().delete()
+
 
 class EventCreateForm(EventTicketTypesFormMixin, forms.ModelForm):
-    datetime = forms.DateTimeField(
-        input_formats=["%Y-%m-%dT%H:%M"],
-        widget=forms.DateTimeInput(format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local"}),
-    )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["status"].choices = [
-            choice for choice in Event.Status.choices if choice[0] != Event.Status.PENDING
-        ]
-        self.fields["age_rating"].label = "Clasificación de edad"
-        self.fields["datetime"].label = "Fecha y hora de inicio"
-
-    class Meta:
-        model = Event
-        fields = [
-            "title",
-            "description",
-            "location",
-            "age_rating",
-            "datetime",
-            "status",
-        ]
-        labels = {
-            "title": "Título",
-            "description": "Descripción",
-            "location": "Ubicación",
-            "age_rating": "Clasificación de edad",
-            "datetime": "Fecha y hora de inicio",
-            "status": "Estado",
-        }
-
-    def clean_datetime(self):
-        value = self.cleaned_data["datetime"]
-        if timezone.is_naive(value):
-            return timezone.make_aware(value, timezone.get_current_timezone())
-        return value
-
-class EventUpdateForm(EventTicketTypesFormMixin, forms.ModelForm):
     datetime = forms.DateTimeField(
         input_formats=["%Y-%m-%dT%H:%M"],
         widget=forms.DateTimeInput(format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local"}),
@@ -212,24 +378,14 @@ class EventUpdateForm(EventTicketTypesFormMixin, forms.ModelForm):
     end_datetime = forms.DateTimeField(
         input_formats=["%Y-%m-%dT%H:%M"],
         widget=forms.DateTimeInput(format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local"}),
-        required=False,
+        required=True,
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["status"].choices = [
-            choice for choice in Event.Status.choices if choice[0] != Event.Status.PENDING
-        ]
         self.fields["age_rating"].label = "Clasificación de edad"
         self.fields["datetime"].label = "Fecha y hora de inicio"
         self.fields["end_datetime"].label = "Fecha y hora de finalización"
-        if (
-            self.instance
-            and self.instance.pk
-            and self.instance.status == Event.Status.PENDING
-            and not self.is_bound
-        ):
-            self.initial["status"] = Event.Status.INACTIVE
 
     class Meta:
         model = Event
@@ -237,23 +393,17 @@ class EventUpdateForm(EventTicketTypesFormMixin, forms.ModelForm):
             "title",
             "description",
             "location",
-            "organizer",
-            "category",
             "age_rating",
             "datetime",
             "end_datetime",
-            "status",
         ]
         labels = {
             "title": "Título",
             "description": "Descripción",
             "location": "Ubicación",
-            "organizer": "Organizador o productor",
-            "category": "Categoría",
             "age_rating": "Clasificación de edad",
             "datetime": "Fecha y hora de inicio",
             "end_datetime": "Fecha y hora de finalización",
-            "status": "Estado",
         }
 
     def clean_datetime(self):
@@ -275,6 +425,114 @@ class EventUpdateForm(EventTicketTypesFormMixin, forms.ModelForm):
 
         cleaned_data["end_datetime"] = end_at
         return cleaned_data
+
+class EventUpdateForm(EventTicketTypesFormMixin, forms.ModelForm):
+    datetime = forms.DateTimeField(
+        input_formats=["%Y-%m-%dT%H:%M"],
+        widget=forms.DateTimeInput(format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local"}),
+    )
+    end_datetime = forms.DateTimeField(
+        input_formats=["%Y-%m-%dT%H:%M"],
+        widget=forms.DateTimeInput(format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local"}),
+        required=True,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["age_rating"].label = "Clasificación de edad"
+        self.fields["datetime"].label = "Fecha y hora de inicio"
+        self.fields["end_datetime"].label = "Fecha y hora de finalización"
+
+    class Meta:
+        model = Event
+        fields = [
+            "title",
+            "description",
+            "location",
+            "organizer",
+            "category",
+            "age_rating",
+            "datetime",
+            "end_datetime",
+        ]
+        labels = {
+            "title": "Título",
+            "description": "Descripción",
+            "location": "Ubicación",
+            "organizer": "Organizador o productor",
+            "category": "Categoría",
+            "age_rating": "Clasificación de edad",
+            "datetime": "Fecha y hora de inicio",
+            "end_datetime": "Fecha y hora de finalización",
+        }
+
+    def clean_datetime(self):
+        value = self.cleaned_data["datetime"]
+        if timezone.is_naive(value):
+            return timezone.make_aware(value, timezone.get_current_timezone())
+        return value
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_at = cleaned_data.get("datetime")
+        end_at = cleaned_data.get("end_datetime")
+
+        if end_at and timezone.is_naive(end_at):
+            end_at = timezone.make_aware(end_at, timezone.get_current_timezone())
+
+        if start_at and end_at and end_at < start_at:
+            self.add_error("end_datetime", "La fecha de fin debe ser mayor o igual a la fecha de inicio.")
+
+        cleaned_data["end_datetime"] = end_at
+        return cleaned_data
+
+
+class MomentBlockForm(forms.ModelForm):
+    class Meta:
+        model = MomentBlock
+        fields = ["title", "description"]
+        labels = {
+            "title": "Titulo",
+            "description": "Descripcion",
+        }
+
+
+class SiteSettingsForm(forms.ModelForm):
+    home_video_url = forms.URLField(
+        required=False,
+        label="Video de inicio (YouTube)",
+        widget=forms.URLInput(
+            attrs={
+                "placeholder": "https://www.youtube.com/watch?v=... o https://youtu.be/...",
+            }
+        ),
+    )
+
+    class Meta:
+        model = SiteSettings
+        fields = [
+            "whatsapp_url",
+            "instagram_url",
+            "facebook_url",
+            "tiktok_url",
+            "x_url",
+            "telegram_url",
+            "home_video_url",
+            "footer_primary_text",
+            "footer_tagline",
+            "footer_copyright_text",
+        ]
+        labels = {
+            "whatsapp_url": "Enlace de WhatsApp",
+            "instagram_url": "Enlace de Instagram",
+            "facebook_url": "Enlace de Facebook",
+            "tiktok_url": "Enlace de TikTok",
+            "x_url": "Enlace de X",
+            "telegram_url": "Enlace de Telegram",
+            "footer_primary_text": "Texto principal del pie de pagina",
+            "footer_tagline": "Frase destacada del pie de pagina",
+            "footer_copyright_text": "Texto legal del pie de pagina",
+        }
 
 class EventProposalForm(forms.ModelForm):
     ticket_limit = forms.IntegerField(
@@ -376,15 +634,6 @@ class ProfileForm(forms.ModelForm):
 
     def clean_display_name(self):
         display_name = (self.cleaned_data.get("display_name") or "").strip()
-        if not display_name:
-            return display_name
-        exists = (
-            Profile.objects.exclude(pk=self.instance.pk)
-            .filter(display_name__iexact=display_name)
-            .exists()
-        )
-        if exists:
-            raise forms.ValidationError("Este nombre para mostrar ya está registrado.")
         return display_name
 
 
@@ -455,8 +704,6 @@ class EmailRequiredUserCreationForm(UserCreationForm):
         display_name = (self.cleaned_data.get("display_name") or "").strip()
         if not display_name:
             raise forms.ValidationError("El nombre para mostrar es obligatorio.")
-        if Profile.objects.filter(display_name__iexact=display_name).exists():
-            raise forms.ValidationError("Este nombre para mostrar ya está registrado.")
         return display_name
 
     def save(self, commit=True):
@@ -488,7 +735,25 @@ class EmailOrUsernameAuthenticationForm(AuthenticationForm):
                     "Tu cuenta ha sido bloqueada. Comunícate con soporte.",
                     code="inactive",
                 )
+            if lookup_user and lookup_user.is_active:
+                try:
+                    if not lookup_user.is_staff and not lookup_user.profile.email_verified:
+                        if self.request is not None:
+                            self.request.session["pending_verification_email"] = lookup_user.email
+                        raise forms.ValidationError(
+                            "Tu cuenta aun no ha sido verificada. Revisa tu correo y confirma tu cuenta para poder ingresar.",
+                            code="email_not_verified",
+                        )
+                except Profile.DoesNotExist:
+                    pass
         return super().clean()
+
+
+class EmailVerificationResendForm(forms.Form):
+    email = forms.EmailField(required=True, label="Correo electrónico")
+
+    def clean_email(self):
+        return (self.cleaned_data.get("email") or "").strip().lower()
 
 
 class UserEmailUpdateForm(forms.Form):

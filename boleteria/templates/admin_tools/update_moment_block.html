@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}Editar bloque de momentos | Boletas QR{% endblock %}
+{% block content %}
+  <section class="panel p-6">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h1 class="text-[2rem] font-extrabold sm:text-3xl lg:text-4xl">
+          <span class="title-top">Editar</span>
+          <span class="title-bottom">momento</span>
+        </h1>
+        <p class="mt-2 text-sm text-slate-600">Ajusta el titulo, la descripcion y los archivos del bloque visual.</p>
+      </div>
+      <a class="btn-neutral !border-[#1F5FBF]/20 !bg-white !text-[#0D2A5C]" href="{% url 'manage_moments' %}">Volver a gestionar</a>
+    </div>
+
+    <form class="mt-6 space-y-4" method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+        <div class="rounded-[1.25rem] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
+      <div class="grid gap-4 sm:grid-cols-2">
+        <p class="sm:col-span-2">
+          {{ form.title.label_tag }}
+          {{ form.title }}
+          {{ form.title.errors }}
+        </p>
+        <p class="sm:col-span-2">
+          {{ form.description.label_tag }}
+          {{ form.description }}
+          {{ form.description.errors }}
+        </p>
+      </div>
+
+      {% if media_items %}
+        <div class="mt-6">
+          <h2 class="text-xl font-semibold !text-[#0D2A5C]">Archivos actuales</h2>
+          <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {% for media in media_items %}
+              <article class="rounded-[1.25rem] border border-[#1F5FBF]/15 bg-white p-3 shadow-soft">
+                {% if media.media_type == "VIDEO" %}
+                  <video class="h-40 w-full rounded bg-black object-cover" controls preload="metadata">
+                    <source src="{{ media.file.url }}">
+                  </video>
+                {% else %}
+                  <img class="h-40 w-full rounded bg-black object-cover" style="object-position: {{ media.focal_point_x }}% {{ media.focal_point_y }}%;" src="{{ media.file.url }}" alt="{{ block.title }}" data-focus-preview="{{ media.id }}">
+                {% endif %}
+                <label class="mt-3 block text-sm">
+                  Orden en el carrusel
+                  <input class="mt-2" name="media_order_{{ media.id }}" type="number" min="1" value="{{ media.display_order }}">
+                </label>
+                {% if media.media_type == "IMAGE" %}
+                  <label class="mt-3 block text-sm">
+                    Encuadre horizontal
+                    <input class="mt-2 w-full" name="focal_point_x_{{ media.id }}" type="range" min="0" max="100" value="{{ media.focal_point_x }}" data-focus-axis="x" data-focus-id="{{ media.id }}">
+                  </label>
+                  <label class="mt-3 block text-sm">
+                    Encuadre vertical
+                    <input class="mt-2 w-full" name="focal_point_y_{{ media.id }}" type="range" min="0" max="100" value="{{ media.focal_point_y }}" data-focus-axis="y" data-focus-id="{{ media.id }}">
+                  </label>
+                {% endif %}
+                <label class="mt-3 flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="delete_media_ids" value="{{ media.id }}">
+                  Marcar para eliminar
+                </label>
+              </article>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="mt-6">
+        <label for="id_media_files">Agregar mas fotos o videos</label>
+        <input id="id_media_files" name="media_files" type="file" accept="image/*,video/*" multiple>
+        <span class="mt-1 block text-xs text-slate-500">El bloque puede tener hasta 6 archivos en total, sumando imagenes y videos. Recomendado para imagenes: formato horizontal 16:9. Los nuevos se agregaran al final del carrusel.</span>
+        <div id="media-files-limit-message" class="mt-3 hidden w-full rounded-[1rem] border-2 border-[#E53935] bg-[linear-gradient(135deg,#FFF1F0_0%,#FFE5D9_100%)] px-4 py-3 text-sm font-bold leading-5 text-[#9F1239] shadow-[0_10px_24px_rgba(229,57,53,0.16)] break-words"></div>
+      </div>
+
+      <div id="new-image-focus-editor" class="hidden rounded-[1.25rem] border border-[#1F5FBF]/15 bg-white/90 p-4">
+        <h2 class="text-lg font-semibold !text-[#0D2A5C]">Encuadre de imagenes nuevas</h2>
+        <p class="mt-1 text-sm text-slate-600">Define la zona visible antes de guardar. Los videos no necesitan ajuste manual.</p>
+        <div class="mt-4 space-y-4" data-focus-editor-list></div>
+      </div>
+
+      <div class="flex flex-wrap gap-3">
+        <button class="btn-primary" type="submit">Guardar cambios</button>
+        <a class="btn-neutral !border-[#1F5FBF]/20 !bg-white !text-[#0D2A5C]" href="{% url 'manage_moments' %}">Cancelar</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}
+{% block scripts %}
+  <script>
+    (function () {
+      document.querySelectorAll("[data-focus-id]").forEach(function (input) {
+        input.addEventListener("input", function () {
+          var id = input.getAttribute("data-focus-id");
+          var preview = document.querySelector('[data-focus-preview="' + id + '"]');
+          if (!preview) return;
+          var x = document.querySelector('[name="focal_point_x_' + id + '"]');
+          var y = document.querySelector('[name="focal_point_y_' + id + '"]');
+          preview.style.objectPosition = (x ? x.value : 50) + "% " + (y ? y.value : 50) + "%";
+        });
+      });
+
+      var input = document.getElementById("id_media_files");
+      var wrapper = document.getElementById("new-image-focus-editor");
+      var limitMessage = document.getElementById("media-files-limit-message");
+      if (!input || !wrapper) return;
+      var list = wrapper.querySelector("[data-focus-editor-list]");
+      if (!list) return;
+      var selectedFiles = [];
+      var existingMediaCount = {{ media_items|length }};
+      var maxFiles = 6;
+
+      function syncInputFiles() {
+        if (typeof DataTransfer === "undefined") return;
+        var transfer = new DataTransfer();
+        selectedFiles.forEach(function (file) {
+          transfer.items.add(file);
+        });
+        input.files = transfer.files;
+      }
+
+      function showLimitMessage(message) {
+        if (!limitMessage) return;
+        if (!message) {
+          limitMessage.textContent = "";
+          limitMessage.classList.add("hidden");
+          return;
+        }
+        limitMessage.textContent = message;
+        limitMessage.classList.remove("hidden");
+      }
+
+      function renderPreview(img, x, y) {
+        img.style.objectPosition = x + "% " + y + "%";
+      }
+
+      function buildImageCard(file, index) {
+        var card = document.createElement("div");
+        card.className = "rounded-[1.1rem] border border-slate-200 bg-slate-50 p-4";
+
+        var title = document.createElement("p");
+        title.className = "text-sm font-semibold text-slate-900";
+        title.textContent = file.name;
+        card.appendChild(title);
+
+        var preview = document.createElement("img");
+        preview.className = "mt-3 h-40 w-full rounded-xl bg-slate-200 object-cover";
+        preview.alt = file.name;
+        card.appendChild(preview);
+
+        var reader = new FileReader();
+        reader.onload = function (event) {
+          preview.src = event.target.result;
+          renderPreview(preview, 50, 50);
+        };
+        reader.readAsDataURL(file);
+
+        ["x", "y"].forEach(function (axis) {
+          var field = document.createElement("div");
+          field.className = "mt-3";
+
+          var label = document.createElement("label");
+          label.className = "block text-sm font-medium text-slate-700";
+          label.textContent = axis === "x" ? "Horizontal" : "Vertical";
+          field.appendChild(label);
+
+          var range = document.createElement("input");
+          range.type = "range";
+          range.min = "0";
+          range.max = "100";
+          range.value = "50";
+          range.className = "mt-2 w-full";
+          field.appendChild(range);
+
+          var hidden = document.createElement("input");
+          hidden.type = "hidden";
+          hidden.name = "focal_point_" + axis + "_new_" + index;
+          hidden.value = "50";
+          field.appendChild(hidden);
+
+          range.addEventListener("input", function () {
+            hidden.value = range.value;
+            var x = card.querySelector('input[name="focal_point_x_new_' + index + '"]').value;
+            var y = card.querySelector('input[name="focal_point_y_new_' + index + '"]').value;
+            renderPreview(preview, x, y);
+          });
+
+          card.appendChild(field);
+        });
+
+        return card;
+      }
+
+      function renderSelectedFiles() {
+        list.innerHTML = "";
+        var imageIndex = 0;
+        selectedFiles.forEach(function (file) {
+          if (!(file.type || "").toLowerCase().startsWith("image/")) return;
+          imageIndex += 1;
+          list.appendChild(buildImageCard(file, imageIndex));
+        });
+        wrapper.classList.toggle("hidden", imageIndex === 0);
+      }
+
+      input.addEventListener("change", function () {
+        var incomingFiles = Array.from(input.files || []);
+        if (!incomingFiles.length) return;
+        var remainingSlots = Math.max(0, maxFiles - existingMediaCount - selectedFiles.length);
+        if (remainingSlots <= 0) {
+          showLimitMessage("Este bloque ya tiene el maximo permitido de 6 archivos. Elimina alguno antes de agregar mas.");
+          input.value = "";
+          return;
+        }
+        if (incomingFiles.length > remainingSlots) {
+          showLimitMessage("Solo se agregaron " + remainingSlots + " archivo(s). Este bloque solo admite 6 en total.");
+        } else {
+          showLimitMessage("");
+        }
+        incomingFiles.slice(0, remainingSlots).forEach(function (file) {
+          selectedFiles.push(file);
+        });
+        syncInputFiles();
+        renderSelectedFiles();
+        input.value = "";
+      });
+    })();
+  </script>
+{% endblock %}

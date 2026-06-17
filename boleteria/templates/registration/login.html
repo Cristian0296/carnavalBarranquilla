@@ -1,6 +1,52 @@
 {% extends "base.html" %}
 {% block title %}Iniciar sesión | Boletas QR{% endblock %}
 {% block content %}
+  <style>
+    .password-toggle-group {
+      position: relative;
+    }
+
+    .password-toggle-group input[type="password"],
+    .password-toggle-group input[type="text"] {
+      padding-right: 3.75rem;
+    }
+
+    .password-toggle-button {
+      position: absolute;
+      top: 50%;
+      right: 0.85rem;
+      transform: translateY(-50%);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.25rem;
+      height: 2.25rem;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(255, 122, 0, 0.12);
+      color: #475569;
+      cursor: pointer;
+      transition: color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .password-toggle-button svg {
+      width: 1.15rem;
+      height: 1.15rem;
+    }
+
+    .password-toggle-button:hover,
+    .password-toggle-button:focus-visible {
+      color: #f97316;
+      background: rgba(255, 122, 0, 0.2);
+      outline: none;
+      transform: translateY(-50%) scale(1.05);
+    }
+
+    .password-toggle-button.is-visible {
+      color: #f97316;
+      background: rgba(255, 122, 0, 0.18);
+    }
+  </style>
   <section class="mx-auto max-w-xl">
     <section class="panel mx-auto w-full p-6 lg:p-8">
       <h1 class="text-2xl font-semibold text-brand-900 lg:text-3xl">
@@ -10,9 +56,14 @@
       <p class="mt-2 text-slate-600">Accede a tu cuenta para gestionar tus entradas QR, eventos y perfil.</p>
       <form class="mt-5 space-y-3" method="post">
         {% csrf_token %}
+        {% if next %}
+          <input type="hidden" name="next" value="{{ next }}">
+        {% endif %}
         {{ form.as_p }}
         <button class="btn-primary w-full sm:w-auto" type="submit">Iniciar sesión</button>
       </form>
+      <p class="mt-4"><a class="link-primary font-semibold" href="{% url 'password_reset' %}">Olvidé mi contraseña</a></p>
+      <p class="mt-3"><a class="link-primary font-semibold" href="{% url 'resend_email_verification' %}">Reenviar correo de verificación</a></p>
       {% if enable_google_auth %}
         <div class="mt-4">
           <a class="btn-neutral w-full text-center !border-slate-300 !bg-white !text-slate-700 hover:!text-white" href="/accounts/google/login/?process=login">Continuar con Google</a>
@@ -21,4 +72,57 @@
       <p class="mt-5"><a class="link-primary font-semibold" href="{% url 'signup' %}">Crear cuenta</a></p>
     </section>
   </section>
+  <script>
+    (() => {
+      const passwordInput = document.querySelector('input[name="password"]');
+      if (!passwordInput || passwordInput.dataset.toggleReady === "true") {
+        return;
+      }
+
+      const fieldWrapper = passwordInput.closest("p") || passwordInput.parentElement;
+      if (!fieldWrapper) {
+        return;
+      }
+
+      fieldWrapper.classList.add("password-toggle-group");
+      passwordInput.dataset.toggleReady = "true";
+
+      const toggleButton = document.createElement("button");
+      toggleButton.type = "button";
+      toggleButton.className = "password-toggle-button";
+      toggleButton.setAttribute("aria-label", "Mostrar contraseña");
+      toggleButton.setAttribute("aria-pressed", "false");
+      toggleButton.setAttribute("data-password-toggle", "true");
+      toggleButton.innerHTML = `
+        <svg class="password-eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+        <svg class="password-eye-closed hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M3 3l18 18"></path>
+          <path d="M10.6 10.7a3 3 0 0 0 4.2 4.2"></path>
+          <path d="M9.5 5.3A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17.7 17.7 0 0 1-4 4.8"></path>
+          <path d="M6.6 6.7A17.2 17.2 0 0 0 2 12s3.5 7 10 7a10.8 10.8 0 0 0 5-1.2"></path>
+        </svg>
+      `;
+
+      const openIcon = toggleButton.querySelector(".password-eye-open");
+      const closedIcon = toggleButton.querySelector(".password-eye-closed");
+
+      toggleButton.addEventListener("click", () => {
+        const isHidden = passwordInput.type === "password";
+        passwordInput.type = isHidden ? "text" : "password";
+        toggleButton.classList.toggle("is-visible", isHidden);
+        openIcon.classList.toggle("hidden", isHidden);
+        closedIcon.classList.toggle("hidden", !isHidden);
+        toggleButton.setAttribute(
+          "aria-label",
+          isHidden ? "Ocultar contraseña" : "Mostrar contraseña"
+        );
+        toggleButton.setAttribute("aria-pressed", isHidden ? "true" : "false");
+      });
+
+      fieldWrapper.appendChild(toggleButton);
+    })();
+  </script>
 {% endblock %}

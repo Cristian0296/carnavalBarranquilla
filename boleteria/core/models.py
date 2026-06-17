@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Max, Q
+from django.db.models import Max, Q, Sum
 from django.core.validators import MinValueValidator
 from django.utils import timezone
 
@@ -122,7 +122,11 @@ class Event(models.Model):
 
 class Order(models.Model):
     class Status(models.TextChoices):
+        PENDING = "PENDING", "Pendiente de pago"
         PAID = "PAID", "Pagada"
+        FAILED = "FAILED", "Pago fallido"
+        CANCELED = "CANCELED", "Pago cancelado"
+        REFUNDED = "REFUNDED", "Reembolsada"
         VOID = "VOID", "Anulada"
 
     user = models.ForeignKey(
@@ -134,6 +138,8 @@ class Order(models.Model):
         Event,
         on_delete=models.CASCADE,
         related_name="orders",
+        null=True,
+        blank=True,
     )
     ticket_type = models.ForeignKey(
         "EventTicketType",
@@ -145,15 +151,31 @@ class Order(models.Model):
     unit_price_usd = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("1.00"))
     quantity = models.PositiveIntegerField(default=1)
     total_usd = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("1.00"))
+    payment_provider = models.CharField(max_length=32, blank=True)
+    payment_status_detail = models.CharField(max_length=120, blank=True)
+    stripe_checkout_session_id = models.CharField(max_length=255, blank=True)
+    stripe_payment_intent_id = models.CharField(max_length=255, blank=True)
+    payment_confirmed_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(
         max_length=16,
         choices=Status.choices,
-        default=Status.PAID,
+        default=Status.PENDING,
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Order #{self.pk} - {self.user} - {self.event.title}"
+        event_label = self.event.title if self.event_id and self.event else "Sin evento"
+        return f"Order #{self.pk} - {self.user} - {event_label}"
+
+    @property
+    def is_payment_final(self):
+        return self.status in {
+            self.Status.PAID,
+            self.Status.FAILED,
+            self.Status.CANCELED,
+            self.Status.REFUNDED,
+            self.Status.VOID,
+        }
 
 
 class Ticket(models.Model):
@@ -294,6 +316,315 @@ class EventTicketType(models.Model):
         return max(1, len(str(self.stock_total)))
 
 
+class Product(models.Model):
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="products",
+    )
+    name = models.CharField(max_length=160)
+    description = models.TextField(blank=True)
+    image = models.ImageField(upload_to="event_products/", blank=True)
+    price_usd = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    is_active = models.BooleanField(default=True)
+    has_variants = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def __str__(self):
+        return f"{self.event.title} - {self.name}"
+
+    @property
+    def active_variants(self):
+        return self.variants.filter(is_active=True)
+
+
+class ProductVariant(models.Model):
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="variants",
+    )
+    name = models.CharField(max_length=120)
+    stock_total = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["product_id", "name", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product", "name"],
+                name="unique_variant_name_per_product",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.product.name} - {self.name}"
+
+    @property
+    def sold_quantity(self):
+        return (
+            self.order_items.filter(
+                item_type="PRODUCT",
+                order__status=Order.Status.PAID,
+            ).aggregate(total=Sum("quantity")).get("total")
+            or 0
+        )
+
+    @property
+    def remaining_stock(self):
+        return max(self.stock_total - self.sold_quantity, 0)
+
+
+class Cart(models.Model):
+    class Status(models.TextChoices):
+        ACTIVE = "ACTIVE", "Activo"
+        CONVERTED = "CONVERTED", "Convertido"
+        ABANDONED = "ABANDONED", "Abandonado"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="carts",
+    )
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="carts",
+        null=True,
+        blank=True,
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.ACTIVE,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=Q(status="ACTIVE"),
+                name="unique_active_cart_per_user",
+            )
+        ]
+
+    def __str__(self):
+        return f"Cart #{self.pk} - {self.user}"
+
+    @property
+    def total_usd(self):
+        total = Decimal("0.00")
+        for item in self.items.all():
+            total += item.subtotal_usd
+        return total
+
+
+class CartItem(models.Model):
+    class ItemType(models.TextChoices):
+        TICKET = "TICKET", "Boleta"
+        PRODUCT = "PRODUCT", "Producto"
+
+    cart = models.ForeignKey(
+        Cart,
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+    item_type = models.CharField(max_length=16, choices=ItemType.choices)
+    ticket_type = models.ForeignKey(
+        EventTicketType,
+        on_delete=models.PROTECT,
+        related_name="cart_items",
+        null=True,
+        blank=True,
+    )
+    product_variant = models.ForeignKey(
+        ProductVariant,
+        on_delete=models.PROTECT,
+        related_name="cart_items",
+        null=True,
+        blank=True,
+    )
+    quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)], default=1)
+    unit_price_usd = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(item_type="TICKET", ticket_type__isnull=False, product_variant__isnull=True)
+                    | Q(item_type="PRODUCT", ticket_type__isnull=True, product_variant__isnull=False)
+                ),
+                name="cart_item_matches_selected_target",
+            ),
+            models.UniqueConstraint(
+                fields=["cart", "ticket_type"],
+                condition=Q(ticket_type__isnull=False),
+                name="unique_cart_ticket_type_item",
+            ),
+            models.UniqueConstraint(
+                fields=["cart", "product_variant"],
+                condition=Q(product_variant__isnull=False),
+                name="unique_cart_product_variant_item",
+            ),
+        ]
+
+    def __str__(self):
+        return f"CartItem #{self.pk} - {self.item_type}"
+
+    @property
+    def event(self):
+        if self.ticket_type_id and self.ticket_type:
+            return self.ticket_type.event
+        if self.product_variant_id and self.product_variant:
+            return self.product_variant.product.event
+        return None
+
+    @property
+    def item_name(self):
+        if self.ticket_type_id and self.ticket_type:
+            return f"{self.ticket_type.event.title} - {self.ticket_type.name}"
+        if self.product_variant_id and self.product_variant:
+            return f"{self.product_variant.product.event.title} - {self.product_variant.product.name}"
+        return ""
+
+    @property
+    def subtotal_usd(self):
+        return self.unit_price_usd * self.quantity
+
+
+class OrderItem(models.Model):
+    class ItemType(models.TextChoices):
+        TICKET = "TICKET", "Boleta"
+        PRODUCT = "PRODUCT", "Producto"
+
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="order_items",
+        null=True,
+        blank=True,
+    )
+    item_type = models.CharField(max_length=16, choices=ItemType.choices)
+    ticket_type = models.ForeignKey(
+        EventTicketType,
+        on_delete=models.PROTECT,
+        related_name="order_items",
+        null=True,
+        blank=True,
+    )
+    product_variant = models.ForeignKey(
+        ProductVariant,
+        on_delete=models.PROTECT,
+        related_name="order_items",
+        null=True,
+        blank=True,
+    )
+    item_name = models.CharField(max_length=255)
+    variant_name = models.CharField(max_length=120, blank=True)
+    unit_price_usd = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)], default=1)
+    total_usd = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(item_type="TICKET", ticket_type__isnull=False, product_variant__isnull=True)
+                    | Q(item_type="PRODUCT", ticket_type__isnull=True, product_variant__isnull=False)
+                ),
+                name="order_item_matches_selected_target",
+            )
+        ]
+
+    def __str__(self):
+        return f"OrderItem #{self.pk} - {self.item_name}"
+
+
+def _generate_product_redemption_code():
+    return f"PROD-{uuid.uuid4().hex[:6].upper()}"
+
+
+class ProductRedemption(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pendiente"
+        DELIVERED = "DELIVERED", "Entregado"
+
+    order = models.OneToOneField(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="product_redemption",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="product_redemptions",
+    )
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="product_redemptions",
+        null=True,
+        blank=True,
+    )
+    code = models.CharField(max_length=20, unique=True, default=_generate_product_redemption_code)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    delivered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="delivered_product_redemptions",
+        null=True,
+        blank=True,
+    )
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        event_label = self.event.title if self.event_id and self.event else "Sin evento"
+        return f"{self.code} - {self.user} - {event_label}"
+
+
 class ValidationLog(models.Model):
     class Outcome(models.TextChoices):
         ACCEPTED = "ACCEPTED", "Accepted"
@@ -337,6 +668,8 @@ class Profile(models.Model):
     display_name = models.CharField(max_length=120, blank=True)
     bio = models.TextField(blank=True)
     photo = models.ImageField(upload_to="profiles/", blank=True)
+    email_verified = models.BooleanField(default=True)
+    email_verified_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.display_name or self.user.username
@@ -424,6 +757,79 @@ class EventImage(models.Model):
 
     def __str__(self):
         return f"EventImage {self.pk} - Event {self.event_id}"
+
+
+class MomentBlock(models.Model):
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    display_order = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["display_order", "-created_at", "-id"]
+
+    def __str__(self):
+        return self.title
+
+
+class MomentMedia(models.Model):
+    class MediaType(models.TextChoices):
+        IMAGE = "IMAGE", "Imagen"
+        VIDEO = "VIDEO", "Video"
+
+    block = models.ForeignKey(
+        MomentBlock,
+        on_delete=models.CASCADE,
+        related_name="media_items",
+    )
+    media_type = models.CharField(max_length=16, choices=MediaType.choices)
+    file = models.FileField(upload_to="moments/")
+    display_order = models.PositiveIntegerField(default=1)
+    focal_point_x = models.FloatField(default=50.0)
+    focal_point_y = models.FloatField(default=50.0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["display_order", "id"]
+
+    def __str__(self):
+        return f"{self.block.title} - {self.media_type}"
+
+
+class SiteSettings(models.Model):
+    whatsapp_url = models.URLField(blank=True)
+    instagram_url = models.URLField(blank=True)
+    facebook_url = models.URLField(blank=True)
+    tiktok_url = models.URLField(blank=True)
+    x_url = models.URLField(blank=True)
+    telegram_url = models.URLField(blank=True)
+    home_video_url = models.URLField(blank=True)
+    footer_primary_text = models.TextField(blank=True)
+    footer_tagline = models.CharField(max_length=160, blank=True)
+    footer_copyright_text = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Configuracion del sitio"
+        verbose_name_plural = "Configuracion del sitio"
+
+    def __str__(self):
+        return "Configuracion del sitio"
+
+    @classmethod
+    def get_solo(cls):
+        settings_obj, _ = cls.objects.get_or_create(
+            pk=1,
+            defaults={
+                "footer_primary_text": "Una experiencia que une arte, cultura y la alegria del Carnaval de Barranquilla en Atlanta.",
+                "footer_tagline": "Vive la experiencia.",
+                "footer_copyright_text": "2026 MaruVision. Todos los derechos reservados.",
+            },
+        )
+        return settings_obj
 
 
 class ReviewReport(models.Model):

@@ -12,22 +12,22 @@
     <div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {% for row in tickets_with_qr %}
         <article class="panel p-4 {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}!border-[#C8A23A] !bg-[linear-gradient(145deg,#0B0B0D_0%,#1A1A1F_55%,#2A2212_100%)] !text-white shadow-[0_18px_40px_rgba(20,20,24,0.35)]{% endif %}">
-          <p class="text-sm"><strong>Evento:</strong> {{ row.ticket.event.title }}</p>
-          <p class="text-sm">
-            <strong>Tipo:</strong>
+          <p class="text-sm {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}text-slate-100{% endif %}"><strong class="{% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}text-white{% endif %}">Evento:</strong> {{ row.ticket.event.title }}</p>
+          <p class="text-sm {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}text-slate-100{% endif %}">
+            <strong class="{% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}text-white{% endif %}">Tipo:</strong>
             <span class="inline-flex rounded-full px-2 py-1 text-xs font-bold uppercase tracking-[0.18em] {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}bg-[#1A1A1F] text-[#F5D77E]{% else %}bg-[#EAF2FF] text-[#0D2A5C]{% endif %}">
               {% if row.ticket.ticket_type %}{{ row.ticket.ticket_type.name }}{% else %}General{% endif %}
             </span>
           </p>
-          <p class="text-sm"><strong>Numero de boleta:</strong> {{ row.ticket.raffle_number_display }}</p>
-          <p class="text-sm"><strong>Estado:</strong> {{ row.ticket.get_status_display }}</p>
+          <p class="text-sm {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}text-slate-100{% endif %}"><strong class="{% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}text-white{% endif %}">Numero de boleta:</strong> {{ row.ticket.raffle_number_display }}</p>
+          <p class="text-sm {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}text-slate-100{% endif %}"><strong class="{% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}text-white{% endif %}">Estado:</strong> {{ row.ticket.get_status_display }}</p>
           {% if row.qr_data_uri %}
             <div class="mt-3 inline-block rounded-[1.25rem] bg-white p-4 shadow-soft">
               <img class="w-full max-w-48 rounded-lg border border-slate-200" src="{{ row.qr_data_uri }}" alt="QR de {{ row.ticket.ticket_uuid }}">
             </div>
             <div class="mt-4 flex flex-wrap items-center gap-2">
               <a class="btn-neutral px-3 py-2 text-sm !border-[#1F5FBF]/20 !bg-white !text-[#0D2A5C]" href="{% url 'event_detail' row.ticket.event.id %}">Ver evento</a>
-              <a class="btn-neutral px-3 py-2 text-sm !border-[#1F5FBF]/20 !bg-white !text-[#0D2A5C]" href="{% url 'download_ticket_qr_jpg' row.ticket.id %}">Descargar QR</a>
+              <a class="btn-neutral !border-[#FF7A00] !bg-[#FF7A00] px-3 py-2 text-sm !text-white hover:!border-[#E66F00] hover:!bg-[#E66F00] hover:!text-white" href="{% url 'download_ticket_qr_jpg' row.ticket.id %}">Descargar QR</a>
               <button
                 class="btn-primary px-3 py-2 text-sm"
                 type="button"

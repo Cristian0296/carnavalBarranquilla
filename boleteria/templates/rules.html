@@ -22,7 +22,7 @@
           <div class="mt-8 flex flex-wrap gap-4">
             <a class="btn-primary home-cta" href="{% url 'event_list' %}">Ver eventos</a>
             {% if not user.is_authenticated %}
-              <a class="btn-primary" href="{% url 'login' %}">Iniciar sesión</a>
+              <a class="btn-primary" href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}">Iniciar sesión</a>
             {% endif %}
             <a class="btn-neutral home-cta border-[#1F5FBF]/30 bg-white/70 !text-[#0D2A5C]" href="{% url 'home' %}">Volver al inicio</a>
           </div>
@@ -59,6 +59,5 @@
         <p class="mt-3 text-base leading-7 text-slate-700">Disfruta la música, la cultura y toda la energía del Carnaval de Barranquilla en Atlanta.</p>
       </article>
     </section>
-
   </section>
 {% endblock %}

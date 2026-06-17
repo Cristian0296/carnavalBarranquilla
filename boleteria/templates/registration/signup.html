@@ -8,6 +8,17 @@
         <span class="title-bottom">usuario</span>
       </h1>
       <p class="mt-2 text-slate-600">Crea tu cuenta para entrar a una experiencia mas alegre, cultural y conectada con el Carnaval.</p>
+      {% if form.errors %}
+        {% if form.email.errors %}
+          <div class="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-800" role="alert">
+            Este correo ya esta en uso. Intenta iniciar sesion o recuperar tu contrasena.
+          </div>
+        {% else %}
+          <div class="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-800" role="alert">
+            Revisa los campos marcados. No pudimos crear la cuenta con la informacion enviada.
+          </div>
+        {% endif %}
+      {% endif %}
       <form class="mt-5 space-y-3" method="post">
         {% csrf_token %}
         {{ form.as_p }}

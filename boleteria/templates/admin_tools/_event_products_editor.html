@@ -1,0 +1,254 @@
+<div class="rounded-[1.25rem] border border-[#1F5FBF]/15 bg-white/90 p-4">
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h2 class="text-base font-semibold !text-[#0D2A5C]">Productos del evento</h2>
+      <p class="mt-1 text-xs text-slate-500">Agrega productos opcionales y sus variantes para venderlos junto con las boletas.</p>
+    </div>
+    <label class="inline-flex items-center gap-2 text-sm font-medium">
+      {{ form.products_enabled }}
+      {{ form.products_enabled.label }}
+    </label>
+  </div>
+
+  {{ form.products_payload }}
+  {{ form.products_payload.errors }}
+
+  <div class="mt-4 space-y-4" data-products-editor>
+    <div class="space-y-4" data-products-list></div>
+    <button class="btn-neutral !border-[#1F5FBF]/20 !bg-white !text-[#0D2A5C]" type="button" data-add-product>
+      Agregar producto
+    </button>
+    <p class="text-xs text-slate-500">Si un producto no tiene variantes, usa un solo stock general. Si tiene variantes, cada una debe tener nombre y stock.</p>
+  </div>
+</div>
+
+<script>
+  (() => {
+    const editor = document.querySelector("[data-products-editor]");
+    if (!editor) return;
+
+    const enabledInput = document.getElementById("id_products_enabled");
+    const payloadInput = document.getElementById("id_products_payload");
+    const list = editor.querySelector("[data-products-list]");
+    const addButton = editor.querySelector("[data-add-product]");
+    let nextProductSequence = 0;
+
+    const parsePayload = () => {
+      if (!payloadInput.value.trim()) return [];
+      try {
+        const parsed = JSON.parse(payloadInput.value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        return [];
+      }
+    };
+
+    const normalizeProduct = (product = {}) => ({
+      id: product.id || "",
+      name: product.name || "",
+      description: product.description || "",
+      price_usd: product.price_usd || "",
+      is_active: product.is_active !== false,
+      has_variants: Boolean(product.has_variants),
+      image_input_key: product.image_input_key || `product_image_new_${++nextProductSequence}`,
+      image_url: product.image_url || "",
+      simple_stock: product.simple_stock || "",
+      simple_variant_id: product.simple_variant_id || "",
+      variants: Array.isArray(product.variants) ? product.variants : [],
+    });
+
+    const normalizeVariant = (variant = {}) => ({
+      id: variant.id || "",
+      name: variant.name || "",
+      stock_total: variant.stock_total ?? "",
+      is_active: variant.is_active !== false,
+    });
+
+    const syncPayload = () => {
+      const products = [];
+      list.querySelectorAll("[data-product-card]").forEach((card) => {
+        const hasVariants = card.querySelector("[data-field='has_variants']").checked;
+        const product = {
+          id: card.dataset.productId || "",
+          name: card.querySelector("[data-field='name']").value.trim(),
+          description: card.querySelector("[data-field='description']").value.trim(),
+          price_usd: card.querySelector("[data-field='price_usd']").value.trim(),
+          is_active: card.querySelector("[data-field='is_active']").checked,
+          has_variants: hasVariants,
+          image_input_key: card.dataset.imageInputKey || "",
+          image_url: card.dataset.imageUrl || "",
+          simple_stock: card.querySelector("[data-field='simple_stock']").value.trim(),
+          simple_variant_id: card.dataset.simpleVariantId || "",
+          variants: [],
+        };
+        card.querySelectorAll("[data-variant-row]").forEach((row) => {
+          product.variants.push({
+            id: row.dataset.variantId || "",
+            name: row.querySelector("[data-field='variant_name']").value.trim(),
+            stock_total: row.querySelector("[data-field='variant_stock']").value.trim(),
+            is_active: row.querySelector("[data-field='variant_active']").checked,
+          });
+        });
+        products.push(product);
+      });
+      payloadInput.value = JSON.stringify(products);
+      editor.style.display = enabledInput.checked ? "" : "none";
+    };
+
+    const renderVariants = (container, variants) => {
+      container.innerHTML = "";
+      variants.forEach((variant) => {
+        const normalized = normalizeVariant(variant);
+        const row = document.createElement("div");
+        row.className = "grid gap-3 rounded-xl border border-[#1F5FBF]/10 bg-[#F8FBFF] p-3 sm:grid-cols-[1.2fr_0.8fr_auto_auto]";
+        row.dataset.variantRow = "1";
+        row.dataset.variantId = normalized.id;
+        row.innerHTML = `
+          <input data-field="variant_name" type="text" value="${normalized.name}" placeholder="Ej: M / Roja">
+          <input data-field="variant_stock" type="number" min="0" value="${normalized.stock_total}" placeholder="Stock">
+          <label class="inline-flex items-center gap-2 text-sm"><input data-field="variant_active" type="checkbox" ${normalized.is_active ? "checked" : ""}> Activa</label>
+          <button class="btn-neutral !border-[#FF7A00] !bg-[#FF7A00] !px-3 !py-2 !text-sm !text-white hover:!border-[#E66F00] hover:!bg-[#E66F00] hover:!text-white" type="button" data-remove-variant>Quitar</button>
+        `;
+        container.appendChild(row);
+      });
+    };
+
+    const attachProductBehavior = (card) => {
+      const variantsWrapper = card.querySelector("[data-variants-wrapper]");
+      const variantsList = card.querySelector("[data-variants-list]");
+      const hasVariantsInput = card.querySelector("[data-field='has_variants']");
+      const simpleStockWrapper = card.querySelector("[data-simple-stock-wrapper]");
+      const imageInput = card.querySelector("[data-field='product_image']");
+      const imagePreview = card.querySelector("[data-product-image-preview]");
+      const imagePlaceholder = card.querySelector("[data-product-image-placeholder]");
+
+      const refreshMode = () => {
+        const hasVariants = hasVariantsInput.checked;
+        variantsWrapper.style.display = hasVariants ? "" : "none";
+        simpleStockWrapper.style.display = hasVariants ? "none" : "";
+        syncPayload();
+      };
+
+      const updateImagePreview = (url) => {
+        if (!imagePreview || !imagePlaceholder) return;
+        if (url) {
+          imagePreview.src = url;
+          imagePreview.classList.remove("hidden");
+          imagePlaceholder.classList.add("hidden");
+        } else {
+          imagePreview.src = "";
+          imagePreview.classList.add("hidden");
+          imagePlaceholder.classList.remove("hidden");
+        }
+      };
+
+      card.addEventListener("click", (event) => {
+        if (event.target.matches("[data-remove-product]")) {
+          card.remove();
+          syncPayload();
+        }
+        if (event.target.matches("[data-add-variant]")) {
+          const variants = Array.from(variantsList.querySelectorAll("[data-variant-row]")).map((row) => ({
+            id: row.dataset.variantId || "",
+            name: row.querySelector("[data-field='variant_name']").value.trim(),
+            stock_total: row.querySelector("[data-field='variant_stock']").value.trim(),
+            is_active: row.querySelector("[data-field='variant_active']").checked,
+          }));
+          variants.push({ name: "", stock_total: "", is_active: true });
+          renderVariants(variantsList, variants);
+          syncPayload();
+        }
+        if (event.target.matches("[data-remove-variant]")) {
+          event.target.closest("[data-variant-row]").remove();
+          syncPayload();
+        }
+      });
+
+      card.addEventListener("input", syncPayload);
+      card.addEventListener("change", (event) => {
+        if (event.target === hasVariantsInput) refreshMode();
+        if (event.target === imageInput) {
+          const file = imageInput.files && imageInput.files[0];
+          updateImagePreview(file ? URL.createObjectURL(file) : card.dataset.imageUrl || "");
+        }
+        syncPayload();
+      });
+
+      updateImagePreview(card.dataset.imageUrl || "");
+      refreshMode();
+    };
+
+    const addProductCard = (product = {}) => {
+      const normalized = normalizeProduct(product);
+      const card = document.createElement("article");
+      card.className = "rounded-[1.25rem] border border-[#1F5FBF]/15 bg-[#F8FBFF] p-4";
+      card.dataset.productCard = "1";
+      card.dataset.productId = normalized.id;
+      card.dataset.imageInputKey = normalized.image_input_key;
+      card.dataset.imageUrl = normalized.image_url;
+      card.dataset.simpleVariantId = normalized.simple_variant_id;
+      card.innerHTML = `
+        <div class="flex items-center justify-between gap-3">
+          <h3 class="text-sm font-semibold text-[#0D2A5C]">Producto</h3>
+          <button class="btn-neutral !border-[#FF7A00] !bg-[#FF7A00] !px-3 !py-2 !text-sm !text-white hover:!border-[#E66F00] hover:!bg-[#E66F00] hover:!text-white" type="button" data-remove-product>Eliminar</button>
+        </div>
+        <div class="mt-3 grid gap-4 sm:grid-cols-2">
+          <p class="sm:col-span-2">
+            <label>Nombre</label>
+            <input data-field="name" type="text" value="${normalized.name}">
+          </p>
+          <p class="sm:col-span-2">
+            <label>Descripcion corta</label>
+            <textarea data-field="description" rows="2">${normalized.description}</textarea>
+          </p>
+          <div class="sm:col-span-2 rounded-[1rem] border border-[#1F5FBF]/12 bg-white/80 p-3">
+            <label>Imagen del producto</label>
+            <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start">
+              <div class="flex h-28 w-full items-center justify-center overflow-hidden rounded-[1rem] border border-dashed border-[#1F5FBF]/20 bg-[#EAF2FF] sm:w-40">
+                <img class="hidden h-full w-full object-cover" data-product-image-preview alt="Vista previa del producto">
+                <span class="px-3 text-center text-xs text-slate-500" data-product-image-placeholder>Sin imagen cargada</span>
+              </div>
+              <div class="flex-1">
+                <input data-field="product_image" type="file" name="${normalized.image_input_key}" accept="image/*">
+                <p class="mt-2 text-xs text-slate-500">Esta imagen se mostrará en la tarjeta del producto al comprador.</p>
+              </div>
+            </div>
+          </div>
+          <p>
+            <label>Precio (USD)</label>
+            <input data-field="price_usd" type="number" min="0.01" step="0.01" value="${normalized.price_usd}">
+          </p>
+          <p class="flex flex-wrap items-center gap-4 pt-7">
+            <label class="inline-flex items-center gap-2"><input data-field="is_active" type="checkbox" ${normalized.is_active ? "checked" : ""}> Activo</label>
+            <label class="inline-flex items-center gap-2"><input data-field="has_variants" type="checkbox" ${normalized.has_variants ? "checked" : ""}> Tiene variantes</label>
+          </p>
+        </div>
+        <div class="mt-4" data-simple-stock-wrapper>
+          <label>Stock general</label>
+          <input data-field="simple_stock" type="number" min="0" value="${normalized.simple_stock}">
+        </div>
+        <div class="mt-4 space-y-3" data-variants-wrapper>
+          <div class="flex items-center justify-between gap-3">
+            <h4 class="text-sm font-semibold text-[#0D2A5C]">Variantes</h4>
+            <button class="btn-neutral !border-[#FF7A00] !bg-[#FF7A00] !px-3 !py-2 !text-sm !text-white hover:!border-[#E66F00] hover:!bg-[#E66F00] hover:!text-white" type="button" data-add-variant>Agregar variante</button>
+          </div>
+          <div class="space-y-3" data-variants-list></div>
+        </div>
+      `;
+      list.appendChild(card);
+      renderVariants(card.querySelector("[data-variants-list]"), normalized.variants);
+      attachProductBehavior(card);
+      syncPayload();
+    };
+
+    enabledInput.addEventListener("change", syncPayload);
+    addButton.addEventListener("click", () => addProductCard());
+
+    const initialProducts = parsePayload();
+    if (initialProducts.length) {
+      initialProducts.forEach(addProductCard);
+    } else {
+      syncPayload();
+    }
+  })();
+</script>

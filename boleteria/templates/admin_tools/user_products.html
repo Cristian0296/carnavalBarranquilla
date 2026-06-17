@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Productos comprados | Boletas QR{% endblock %}
+{% block content %}
+  <h1 class="text-[2rem] font-semibold text-white sm:text-3xl lg:text-4xl">
+    <span class="title-top !text-white" style="-webkit-text-stroke:1px #FF7A00; text-shadow:1px 1px 0 #FF7A00, -1px 1px 0 #FF7A00, 1px -1px 0 #FF7A00, -1px -1px 0 #FF7A00;">Productos comprados</span>
+    <span class="title-bottom !text-white" style="-webkit-text-stroke:1px #FF7A00; text-shadow:1px 1px 0 #FF7A00, -1px 1px 0 #FF7A00, 1px -1px 0 #FF7A00, -1px -1px 0 #FF7A00;">por usuarios</span>
+  </h1>
+
+  <form class="panel mt-4 p-5" method="get">
+    <div class="grid gap-4 md:grid-cols-2">
+      <p>
+        <label for="username">Buscar por usuario</label>
+        <input id="username" name="username" type="text" value="{{ username_query|default:'' }}" placeholder="usuario">
+      </p>
+      <p>
+        <label for="event_id">Filtrar por evento</label>
+        <select id="event_id" name="event_id">
+          <option value="">Todos</option>
+          {% for event in events %}
+            <option value="{{ event.id }}" {% if selected_event_id == event.id|stringformat:"s" %}selected{% endif %}>{{ event.title }}</option>
+          {% endfor %}
+        </select>
+      </p>
+    </div>
+    <button class="btn-primary mt-4" type="submit">Filtrar</button>
+  </form>
+
+  {% if selected_user %}
+    <p class="mt-4 text-sm text-slate-600">Usuario seleccionado: <strong>{{ selected_user.username }}</strong></p>
+  {% endif %}
+
+  {% if redemptions %}
+    <div class="mt-4 grid gap-4">
+      {% for redemption in redemptions %}
+        <article class="panel p-5">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex rounded-full bg-[#EAF2FF] px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-[#0D2A5C]">Productos</span>
+                <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] {% if redemption.status == 'DELIVERED' %}bg-emerald-100 text-emerald-800{% else %}bg-amber-100 text-amber-800{% endif %}">
+                  {{ redemption.get_status_display }}
+                </span>
+              </div>
+              <h2 class="mt-3 text-xl font-extrabold !text-[#0D2A5C]">{{ redemption.code }}</h2>
+              <p class="mt-2 text-sm text-slate-700"><strong>Usuario:</strong> {{ redemption.user.username }}</p>
+              <p class="text-sm text-slate-700"><strong>Evento:</strong> {% if redemption.event %}{{ redemption.event.title }}{% else %}Sin evento{% endif %}</p>
+              {% if redemption.delivered_by %}
+                <p class="text-sm text-slate-700"><strong>Entregado por:</strong> {{ redemption.delivered_by.username }}</p>
+              {% endif %}
+              {% if redemption.delivered_at %}
+                <p class="text-sm text-slate-700"><strong>Fecha de entrega:</strong> {{ redemption.delivered_at }}</p>
+              {% endif %}
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <a class="btn-neutral px-3 py-2 text-sm !border-[#1F5FBF]/20 !bg-white !text-[#0D2A5C]" href="{% url 'validate_product_redemption' %}">Validar entrega</a>
+              {% if not selected_user %}
+                <a class="btn-neutral px-3 py-2 text-sm !border-[#1F5FBF]/20 !bg-white !text-[#0D2A5C]" href="{% url 'user_products_by_user' redemption.user.id %}">Ver usuario</a>
+              {% endif %}
+            </div>
+          </div>
+          <div class="mt-4">
+            <p class="text-sm font-semibold text-slate-900">Detalle</p>
+            <ul class="mt-2 space-y-2">
+              {% for item in redemption.order.items.all %}
+                <li class="rounded-xl bg-[#F8FBFF] px-3 py-2 text-sm text-slate-700">
+                  {{ item.item_name }}
+                  {% if item.variant_name %}- {{ item.variant_name }}{% endif %}
+                  x{{ item.quantity }}
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="panel-soft mt-4 p-4">No se encontraron productos comprados.</p>
+  {% endif %}
+{% endblock %}
