@@ -42,6 +42,7 @@ from .views import (
     report_review,
     resend_email_verification,
     remove_cart_item,
+    robots_txt,
     rules_page,
     review_reports_list,
     omit_review_report,
@@ -56,6 +57,7 @@ from .views import (
     stripe_checkout_cancel,
     stripe_checkout_success,
     stripe_webhook,
+    sitemap_xml,
     update_event,
     update_cart_item,
     add_event_images,
@@ -74,6 +76,8 @@ from .views import (
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
+    path("robots.txt", robots_txt, name="robots_txt"),
+    path("sitemap.xml", sitemap_xml, name="sitemap_xml"),
     path("rules/", rules_page, name="rules_page"),
     path("about/", about_page, name="about_page"),
     path("events/", EventListView.as_view(), name="event_list"),

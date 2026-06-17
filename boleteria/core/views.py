@@ -139,6 +139,64 @@ def _site_settings():
     return SiteSettings.get_solo()
 
 
+def robots_txt(request):
+    sitemap_url = request.build_absolute_uri(reverse("sitemap_xml"))
+    content = "\n".join(
+        [
+            "User-agent: *",
+            "Allow: /",
+            "Disallow: /admin/",
+            "Disallow: /staff/",
+            "Disallow: /cart/",
+            "Disallow: /my-tickets/",
+            "Disallow: /accounts/",
+            f"Sitemap: {sitemap_url}",
+            "",
+        ]
+    )
+    return HttpResponse(content, content_type="text/plain")
+
+
+def sitemap_xml(request):
+    public_paths = [
+        reverse("home"),
+        reverse("about_page"),
+        reverse("rules_page"),
+        reverse("event_list"),
+        reverse("moments_page"),
+    ]
+    urls = [
+        {
+            "loc": request.build_absolute_uri(path),
+            "priority": "0.8" if path == reverse("home") else "0.6",
+        }
+        for path in public_paths
+    ]
+    for event in Event.objects.filter(status=Event.Status.ACTIVE).order_by("-datetime", "-id"):
+        urls.append(
+            {
+                "loc": request.build_absolute_uri(reverse("event_detail", args=[event.pk])),
+                "priority": "0.7",
+            }
+        )
+
+    rows = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ]
+    for url in urls:
+        rows.extend(
+            [
+                "  <url>",
+                f"    <loc>{escape(url['loc'])}</loc>",
+                f"    <priority>{url['priority']}</priority>",
+                "  </url>",
+            ]
+        )
+    rows.append("</urlset>")
+    return HttpResponse("\n".join(rows), content_type="application/xml")
+
+
 def _youtube_embed_url(raw_url):
     url = (raw_url or "").strip()
     if not url:
