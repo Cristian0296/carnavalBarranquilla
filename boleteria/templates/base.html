@@ -5,7 +5,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="{% block meta_description %}Carnaval de Barranquilla ATL conecta a la comunidad colombiana y latina en Atlanta con eventos culturales, boletas QR y experiencias inspiradas en el Carnaval de Barranquilla.{% endblock %}">
+  <meta property="og:site_name" content="Carnaval de Barranquilla ATL">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Carnaval de Barranquilla ATL">
+  <meta property="og:description" content="Carnaval de Barranquilla ATL conecta a la comunidad colombiana y latina en Atlanta con eventos culturales, boletas QR y experiencias inspiradas en el Carnaval de Barranquilla.">
+  <meta property="og:url" content="{{ request.build_absolute_uri }}">
+  <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'imagenes/BoletasQR.png' %}">
+  <meta property="og:image:alt" content="Carnaval de Barranquilla ATL">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Carnaval de Barranquilla ATL">
+  <meta name="twitter:description" content="Carnaval de Barranquilla ATL conecta a la comunidad colombiana y latina en Atlanta con eventos culturales, boletas QR y experiencias inspiradas en el Carnaval de Barranquilla.">
+  <meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'imagenes/BoletasQR.png' %}">
   <title>{% block title %}Boletas QR{% endblock %}</title>
+  <link rel="icon" type="image/png" href="{% static 'imagenes/BoletasQR.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'imagenes/BoletasQR.png' %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Chewy&family=Gochi+Hand&family=Montserrat:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
