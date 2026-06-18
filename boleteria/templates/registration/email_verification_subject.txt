@@ -1,1 +1,1 @@
-Confirma tu correo en Carnaval de Barranquilla ATL
+{% load i18n %}{% get_current_language as LANGUAGE_CODE %}{% if LANGUAGE_CODE == 'en' %}Confirm your email in Carnaval de Barranquilla ATL{% else %}Confirma tu correo en Carnaval de Barranquilla ATL{% endif %}

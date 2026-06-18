@@ -1,6 +1,6 @@
 ﻿{% load static %}
 <!doctype html>
-<html lang="es">
+<html lang="{{ current_public_language|default:'es' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -333,6 +333,42 @@
       background: linear-gradient(180deg, rgba(255, 122, 0, 0.14) 0%, rgba(245, 197, 24, 0.18) 100%);
       color: #0D2A5C;
     }
+    .language-switcher {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .language-switcher button {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      padding: 0.5rem 0.85rem;
+      font-family: "Montserrat", sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 20px rgba(8, 26, 56, 0.18);
+    }
+    .language-switcher button[aria-pressed="true"] {
+      background: #F5C518;
+      border-color: #F5C518;
+      color: #0D2A5C;
+    }
+    .language-flag {
+      display: inline-flex;
+      width: 1.1rem;
+      height: 1.1rem;
+      overflow: hidden;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+      flex-shrink: 0;
+    }
     .home-orange-hover:hover {
       background: #E53935 !important;
       border-color: #E53935 !important;
@@ -427,6 +463,40 @@
         <a href="{% url 'home' %}" class="navbar-logo mx-auto mb-2 flex w-full justify-center">
           <img class="h-28 max-w-[92vw] w-auto object-contain" src="{% static 'imagenes/BoletasQR_20260603.png' %}" alt="BoletasQR">
         </a>
+        {% if show_public_language_selector %}
+          <div class="mb-3 flex justify-center">
+            <div class="language-switcher">
+              <form method="post" action="{% url 'set_public_language' %}">
+                {% csrf_token %}
+                <input type="hidden" name="language" value="es">
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" aria-pressed="{% if current_public_language == 'es' %}true{% else %}false{% endif %}">
+                  <span class="language-flag" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" class="h-full w-full">
+                      <rect width="24" height="12" fill="#FCD116"></rect>
+                      <rect y="12" width="24" height="6" fill="#003893"></rect>
+                      <rect y="18" width="24" height="6" fill="#CE1126"></rect>
+                    </svg>
+                  </span>
+                </button>
+              </form>
+              <form method="post" action="{% url 'set_public_language' %}">
+                {% csrf_token %}
+                <input type="hidden" name="language" value="en">
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" aria-pressed="{% if current_public_language == 'en' %}true{% else %}false{% endif %}">
+                  <span class="language-flag" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" class="h-full w-full">
+                      <rect width="24" height="24" fill="#B22234"></rect>
+                      <path d="M0 3h24M0 7h24M0 11h24M0 15h24M0 19h24M0 23h24" stroke="#FFFFFF" stroke-width="2"></path>
+                      <rect width="10.5" height="10.5" fill="#3C3B6E"></rect>
+                    </svg>
+                  </span>
+                </button>
+              </form>
+            </div>
+          </div>
+        {% endif %}
         <details id="mobile-nav-menu" class="w-full">
         <summary class="flex cursor-pointer list-none items-center justify-between rounded-[1.25rem] border border-white/15 bg-white/10 px-4 py-3 text-white shadow-glow backdrop-blur-md">
           <span class="font-semibold tracking-[0.18em]">MENU</span>
@@ -440,12 +510,12 @@
         </summary>
         <nav aria-label="Navegación principal móvil" class="mt-3 rounded-[1.5rem] border border-white/15 bg-[linear-gradient(180deg,rgba(255,248,232,0.98)_0%,rgba(255,255,255,0.96)_100%)] p-3 shadow-glow">
           <div class="grid gap-2 text-sm">
-            <a href="{% url 'home' %}" {% if request.resolver_match.url_name == 'home' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#FF7A00]/20 bg-[#FF7A00] px-4 py-3 font-semibold text-white shadow-sm">Inicio</a>
-            <a href="{% url 'rules_page' %}" {% if request.resolver_match.url_name == 'rules_page' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#FF7A00]/20 bg-[#FF7A00] px-4 py-3 font-semibold text-white shadow-sm">Cómo participar</a>
-            <a href="{% url 'about_page' %}" {% if request.resolver_match.url_name == 'about_page' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#FF7A00]/20 bg-[#FF7A00] px-4 py-3 font-semibold text-white shadow-sm">Nosotros</a>
-            <a href="{% url 'moments_page' %}" {% if request.resolver_match.url_name == 'moments_page' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#FF7A00]/20 bg-[#FF7A00] px-4 py-3 font-semibold text-white shadow-sm">Momentos</a>
+            <a href="{% url 'home' %}" {% if request.resolver_match.url_name == 'home' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#FF7A00]/20 bg-[#FF7A00] px-4 py-3 font-semibold text-white shadow-sm">{% if is_english %}Home{% else %}Inicio{% endif %}</a>
+            <a href="{% url 'rules_page' %}" {% if request.resolver_match.url_name == 'rules_page' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#FF7A00]/20 bg-[#FF7A00] px-4 py-3 font-semibold text-white shadow-sm">{% if is_english %}How to join{% else %}Como participar{% endif %}</a>
+            <a href="{% url 'about_page' %}" {% if request.resolver_match.url_name == 'about_page' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#FF7A00]/20 bg-[#FF7A00] px-4 py-3 font-semibold text-white shadow-sm">{% if is_english %}About{% else %}Nosotros{% endif %}</a>
+            <a href="{% url 'moments_page' %}" {% if request.resolver_match.url_name == 'moments_page' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#FF7A00]/20 bg-[#FF7A00] px-4 py-3 font-semibold text-white shadow-sm">{% if is_english %}Moments{% else %}Momentos{% endif %}</a>
             {% if user.is_authenticated and user.is_staff %}
-              <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#FF7A00]/20 bg-[#FF7A00] px-4 py-3 font-semibold text-white shadow-sm">Eventos</a>
+              <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#FF7A00]/20 bg-[#FF7A00] px-4 py-3 font-semibold text-white shadow-sm">{% if is_english %}Events{% else %}Eventos{% endif %}</a>
               <a id="notifications-link-mobile" href="{% url 'notifications_list' %}" {% if request.resolver_match.url_name == 'notifications_list' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#E53935]/20 bg-white px-4 py-3 font-semibold text-[#E53935] shadow-sm">Notificaciones {% if unread_notifications_count %}({{ unread_notifications_count }}){% else %}(0){% endif %}</a>
               <div class="mt-1 rounded-[1.25rem] border border-[#1F5FBF]/12 bg-[#FFF8E8] p-3">
                 <p class="text-xs font-bold uppercase tracking-[0.2em] text-[#0D2A5C]">Control</p>
@@ -461,7 +531,7 @@
                 </div>
               </div>
             {% elif user.is_authenticated and perms.core.can_validate_tickets %}
-              <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#FF7A00]/20 bg-[#FF7A00] px-4 py-3 font-semibold text-white shadow-sm">Eventos</a>
+              <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#FF7A00]/20 bg-[#FF7A00] px-4 py-3 font-semibold text-white shadow-sm">{% if is_english %}Events{% else %}Eventos{% endif %}</a>
               <a id="notifications-link-mobile" href="{% url 'notifications_list' %}" {% if request.resolver_match.url_name == 'notifications_list' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#E53935]/20 bg-white px-4 py-3 font-semibold text-[#E53935] shadow-sm">Notificaciones {% if unread_notifications_count %}({{ unread_notifications_count }}){% else %}(0){% endif %}</a>
               <div class="mt-1 rounded-[1.25rem] border border-[#1F5FBF]/12 bg-[#FFF8E8] p-3">
                 <p class="text-xs font-bold uppercase tracking-[0.2em] text-[#0D2A5C]">Control</p>
@@ -474,23 +544,55 @@
               </div>
             {% elif user.is_authenticated %}
               <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#FF7A00]/20 bg-[#FF7A00] px-4 py-3 font-semibold text-white shadow-sm">Eventos</a>
-              <a href="{% url 'cart_detail' %}" {% if request.resolver_match.url_name == 'cart_detail' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#1F5FBF]/15 bg-white px-4 py-3 font-semibold text-[#0D2A5C] shadow-sm">Carrito{% if cart_items_count %} ({{ cart_items_count }}){% endif %}</a>
-              <a id="notifications-link-mobile" href="{% url 'notifications_list' %}" {% if request.resolver_match.url_name == 'notifications_list' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#E53935]/20 bg-white px-4 py-3 font-semibold text-[#E53935] shadow-sm">Notificaciones {% if unread_notifications_count %}({{ unread_notifications_count }}){% else %}(0){% endif %}</a>
+              <a href="{% url 'cart_detail' %}" {% if request.resolver_match.url_name == 'cart_detail' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#1F5FBF]/15 bg-white px-4 py-3 font-semibold text-[#0D2A5C] shadow-sm">{% if is_english %}Cart{% else %}Carrito{% endif %}{% if cart_items_count %} ({{ cart_items_count }}){% endif %}</a>
+              <a id="notifications-link-mobile" href="{% url 'notifications_list' %}" {% if request.resolver_match.url_name == 'notifications_list' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#E53935]/20 bg-white px-4 py-3 font-semibold text-[#E53935] shadow-sm">{% if is_english %}Notifications{% else %}Notificaciones{% endif %} {% if unread_notifications_count %}({{ unread_notifications_count }}){% else %}(0){% endif %}</a>
             {% else %}
-              <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#FF7A00]/20 bg-[#FF7A00] px-4 py-3 font-semibold text-white shadow-sm">Eventos</a>
-              <a href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}" {% if request.resolver_match.url_name == 'login' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#FF7A00]/20 bg-[#FF7A00] px-4 py-3 text-center font-semibold text-white shadow-sm">Iniciar sesión</a>
+              <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#FF7A00]/20 bg-[#FF7A00] px-4 py-3 font-semibold text-white shadow-sm">{% if is_english %}Events{% else %}Eventos{% endif %}</a>
+              <a href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}" {% if request.resolver_match.url_name == 'login' %}aria-current="page"{% endif %} class="block rounded-xl border border-[#FF7A00]/20 bg-[#FF7A00] px-4 py-3 text-center font-semibold text-white shadow-sm">{% if is_english %}Log in{% else %}Iniciar sesion{% endif %}</a>
             {% endif %}
           </div>
         </nav>
         </details>
       </div>
       <nav aria-label="Navegación principal" class="hidden w-full flex-wrap items-center justify-center gap-2 text-sm sm:flex sm:w-auto sm:justify-end sm:text-base">
-        <a href="{% url 'home' %}" {% if request.resolver_match.url_name == 'home' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">Inicio</a>
-        <a href="{% url 'rules_page' %}" {% if request.resolver_match.url_name == 'rules_page' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">Cómo participar</a>
-        <a href="{% url 'about_page' %}" {% if request.resolver_match.url_name == 'about_page' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">Nosotros</a>
-        <a href="{% url 'moments_page' %}" {% if request.resolver_match.url_name == 'moments_page' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">Momentos</a>
+        <a href="{% url 'home' %}" {% if request.resolver_match.url_name == 'home' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">{% if is_english %}Home{% else %}Inicio{% endif %}</a>
+        <a href="{% url 'rules_page' %}" {% if request.resolver_match.url_name == 'rules_page' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">{% if is_english %}How to join{% else %}Como participar{% endif %}</a>
+        <a href="{% url 'about_page' %}" {% if request.resolver_match.url_name == 'about_page' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">{% if is_english %}About{% else %}Nosotros{% endif %}</a>
+        <a href="{% url 'moments_page' %}" {% if request.resolver_match.url_name == 'moments_page' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">{% if is_english %}Moments{% else %}Momentos{% endif %}</a>
+        {% if show_public_language_selector %}
+          <div class="language-switcher mr-1">
+            <form method="post" action="{% url 'set_public_language' %}">
+              {% csrf_token %}
+              <input type="hidden" name="language" value="es">
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <button type="submit" aria-pressed="{% if current_public_language == 'es' %}true{% else %}false{% endif %}">
+                <span class="language-flag" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" class="h-full w-full">
+                    <rect width="24" height="12" fill="#FCD116"></rect>
+                    <rect y="12" width="24" height="6" fill="#003893"></rect>
+                    <rect y="18" width="24" height="6" fill="#CE1126"></rect>
+                  </svg>
+                </span>
+              </button>
+            </form>
+            <form method="post" action="{% url 'set_public_language' %}">
+              {% csrf_token %}
+              <input type="hidden" name="language" value="en">
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <button type="submit" aria-pressed="{% if current_public_language == 'en' %}true{% else %}false{% endif %}">
+                <span class="language-flag" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" class="h-full w-full">
+                    <rect width="24" height="24" fill="#B22234"></rect>
+                    <path d="M0 3h24M0 7h24M0 11h24M0 15h24M0 19h24M0 23h24" stroke="#FFFFFF" stroke-width="2"></path>
+                    <rect width="10.5" height="10.5" fill="#3C3B6E"></rect>
+                  </svg>
+                </span>
+              </button>
+            </form>
+          </div>
+        {% endif %}
         {% if user.is_authenticated and user.is_staff %}
-          <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">Eventos</a>
+          <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">{% if is_english %}Events{% else %}Eventos{% endif %}</a>
           <a id="notifications-link" href="{% url 'notifications_list' %}" {% if request.resolver_match.url_name == 'notifications_list' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FFFFFF;border-color:rgba(255,255,255,0.7);color:#E53935;">
             <span id="notifications-bell" class="inline-flex items-center gap-1 text-red-600">
               <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 2a5 5 0 0 0-5 5v2.3c0 .9-.3 1.8-.9 2.5l-.9 1.1A1 1 0 0 0 4 14.5h12a1 1 0 0 0 .8-1.6l-.9-1.1a4 4 0 0 1-.9-2.5V7a5 5 0 0 0-5-5zm0 16a2.5 2.5 0 0 0 2.4-2H7.6A2.5 2.5 0 0 0 10 18z"/></svg>
@@ -513,7 +615,7 @@
             </div>
           </details>
         {% elif user.is_authenticated and perms.core.can_validate_tickets %}
-          <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">Eventos</a>
+          <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">{% if is_english %}Events{% else %}Eventos{% endif %}</a>
           <a id="notifications-link" href="{% url 'notifications_list' %}" {% if request.resolver_match.url_name == 'notifications_list' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FFFFFF;border-color:rgba(255,255,255,0.7);color:#E53935;">
             <span id="notifications-bell" class="inline-flex items-center gap-1 text-red-600">
               <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 2a5 5 0 0 0-5 5v2.3c0 .9-.3 1.8-.9 2.5l-.9 1.1A1 1 0 0 0 4 14.5h12a1 1 0 0 0 .8-1.6l-.9-1.1a4 4 0 0 1-.9-2.5V7a5 5 0 0 0-5-5zm0 16a2.5 2.5 0 0 0 2.4-2H7.6A2.5 2.5 0 0 0 10 18z"/></svg>
@@ -532,8 +634,8 @@
             </div>
           </details>
         {% elif user.is_authenticated %}
-          <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">Eventos</a>
-          <a href="{% url 'cart_detail' %}" {% if request.resolver_match.url_name == 'cart_detail' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FFFFFF;border-color:rgba(255,255,255,0.7);color:#0D2A5C;">Carrito{% if cart_items_count %} ({{ cart_items_count }}){% endif %}</a>
+          <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">{% if is_english %}Events{% else %}Eventos{% endif %}</a>
+          <a href="{% url 'cart_detail' %}" {% if request.resolver_match.url_name == 'cart_detail' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FFFFFF;border-color:rgba(255,255,255,0.7);color:#0D2A5C;">{% if is_english %}Cart{% else %}Carrito{% endif %}{% if cart_items_count %} ({{ cart_items_count }}){% endif %}</a>
           <a id="notifications-link" href="{% url 'notifications_list' %}" {% if request.resolver_match.url_name == 'notifications_list' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FFFFFF;border-color:rgba(255,255,255,0.7);color:#E53935;">
             <span id="notifications-bell" class="inline-flex items-center gap-1 text-red-600">
               <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 2a5 5 0 0 0-5 5v2.3c0 .9-.3 1.8-.9 2.5l-.9 1.1A1 1 0 0 0 4 14.5h12a1 1 0 0 0 .8-1.6l-.9-1.1a4 4 0 0 1-.9-2.5V7a5 5 0 0 0-5-5zm0 16a2.5 2.5 0 0 0 2.4-2H7.6A2.5 2.5 0 0 0 10 18z"/></svg>
@@ -541,8 +643,8 @@
             </span>
           </a>
         {% else %}
-          <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">Eventos</a>
-          <a href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}" {% if request.resolver_match.url_name == 'login' %}aria-current="page"{% endif %} class="inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;" aria-label="Iniciar sesión" title="Iniciar sesión">
+          <a href="{% url 'event_list' %}" {% if request.resolver_match.url_name == 'event_list' %}aria-current="page"{% endif %} class="rounded-full border px-4 py-2.5 shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;">{% if is_english %}Events{% else %}Eventos{% endif %}</a>
+          <a href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}" {% if request.resolver_match.url_name == 'login' %}aria-current="page"{% endif %} class="inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-lg backdrop-blur-md" style="background:#FF7A00;border-color:#FF7A00;color:#FFFFFF;" aria-label="{% if is_english %}Log in{% else %}Iniciar sesion{% endif %}" title="{% if is_english %}Log in{% else %}Iniciar sesion{% endif %}">
             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5z"/>
             </svg>
@@ -574,7 +676,7 @@
           {% if user.is_authenticated %}
             <form method="post" action="{% url 'logout' %}">
               {% csrf_token %}
-              <button class="btn-danger px-4 py-2 text-base sm:text-lg" type="submit">Cerrar sesión</button>
+              <button class="btn-danger px-4 py-2 text-base sm:text-lg" type="submit">{% if is_english %}Log out{% else %}Cerrar sesion{% endif %}</button>
             </form>
           {% endif %}
         </div>
@@ -669,12 +771,12 @@
         <div id="cart-added-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4" role="dialog" aria-modal="true" aria-labelledby="cart-added-title">
           <div class="w-full max-w-md rounded-[1.75rem] border border-white/25 bg-[linear-gradient(135deg,rgba(255,248,232,0.99)_0%,rgba(255,255,255,0.96)_100%)] p-6 shadow-glow">
             <h3 id="cart-added-title" class="text-xl font-semibold text-slate-900">
-              Boleta agregada
+              {% if is_english %}Item added{% else %}Boleta agregada{% endif %}
             </h3>
             <p class="mt-2 text-sm text-slate-700">{{ message }}</p>
             <div class="mt-5 flex flex-wrap items-center justify-end gap-3">
-              <button id="cart-added-continue" class="btn-neutral !border-[#1F5FBF] !bg-[#1F5FBF] !text-white hover:!bg-[#0D2A5C] hover:!border-[#0D2A5C] hover:!text-white" type="button">Continuar comprando</button>
-              <a class="btn-primary" href="{% url 'cart_detail' %}">Ir al carrito</a>
+              <button id="cart-added-continue" class="btn-neutral !border-[#1F5FBF] !bg-[#1F5FBF] !text-white hover:!bg-[#0D2A5C] hover:!border-[#0D2A5C] hover:!text-white" type="button">{% if is_english %}Continue shopping{% else %}Continuar comprando{% endif %}</button>
+              <a class="btn-primary" href="{% url 'cart_detail' %}">{% if is_english %}Go to cart{% else %}Ir al carrito{% endif %}</a>
             </div>
           </div>
         </div>

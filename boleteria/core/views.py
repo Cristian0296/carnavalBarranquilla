@@ -71,6 +71,7 @@ from .models import (
     ValidationLog,
 )
 from .moderation import contains_blocked_language
+from .middleware import PUBLIC_LANGUAGE_CODES, PUBLIC_LANGUAGE_COOKIE_NAME
 from .services import (
     build_qr_data_uri,
     build_qr_jpg_bytes,
@@ -94,6 +95,10 @@ EMAIL_VERIFICATION_SALT = "core.email_verification"
 EMAIL_VERIFICATION_MAX_AGE = 60 * 60 * 24
 EMAIL_VERIFICATION_RESEND_LIMIT = 3
 EMAIL_VERIFICATION_RESEND_WINDOW = 60 * 60
+
+
+def _is_english_request(request):
+    return (getattr(request, "LANGUAGE_CODE", "") or "").lower().startswith("en")
 
 
 def _is_recommended_image_ratio(uploaded_file):
@@ -137,6 +142,33 @@ def _ensure_validator_group():
 
 def _site_settings():
     return SiteSettings.get_solo()
+
+
+def set_public_language(request):
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+
+    language = (request.POST.get("language") or "").strip().lower()
+    if language not in PUBLIC_LANGUAGE_CODES:
+        language = "es"
+
+    next_url = (request.POST.get("next") or request.META.get("HTTP_REFERER") or "").strip()
+    if not url_has_allowed_host_and_scheme(
+        url=next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        next_url = reverse("home")
+
+    response = redirect(next_url or reverse("home"))
+    response.set_cookie(
+        PUBLIC_LANGUAGE_COOKIE_NAME,
+        language,
+        max_age=60 * 60 * 24 * 365,
+        samesite="Lax",
+        secure=request.is_secure(),
+    )
+    return response
 
 
 def robots_txt(request):
@@ -250,11 +282,15 @@ def _user_email_is_verified(user):
         return True
 
 
-def _event_purchase_block_reason(event):
+def _event_purchase_block_reason(event, english=False):
     if event.end_datetime is None:
-        return "Este evento no tiene una fecha de finalizacion definida y no admite compras todavia."
+        return (
+            "This event does not have an end date defined and does not allow purchases yet."
+            if english
+            else "Este evento no tiene una fecha de finalizacion definida y no admite compras todavia."
+        )
     if event.has_finished():
-        return "Este evento ya finalizo."
+        return "This event has already ended." if english else "Este evento ya finalizo."
     return ""
 
 
@@ -646,7 +682,7 @@ def _ensure_cart_event(cart, event):
     return True
 
 
-def _build_checkout_snapshot(items, event):
+def _build_checkout_snapshot(items, event, english=False):
     total_quantity = 0
     total_usd = Decimal("0.00")
     ticket_lines = []
@@ -656,17 +692,33 @@ def _build_checkout_snapshot(items, event):
         item_event_id = item.event.id if item.event else None
         order_event_id = event.id if event else None
         if item_event_id != order_event_id:
-            return {"error": "Todos los items del carrito deben pertenecer al mismo contexto de venta."}
+            return {
+                "error": (
+                    "All cart items must belong to the same sale context."
+                    if english
+                    else "Todos los items del carrito deben pertenecer al mismo contexto de venta."
+                )
+            }
 
         if item.item_type == CartItem.ItemType.PRODUCT:
             product_variant = ProductVariant.objects.select_for_update().select_related("product").get(
                 pk=item.product_variant_id
             )
             if not product_variant.is_active or not product_variant.product.is_active:
-                return {"error": f'El producto "{product_variant.product.name}" ya no esta disponible.'}
+                return {
+                    "error": (
+                        f'The product "{product_variant.product.name}" is no longer available.'
+                        if english
+                        else f'El producto "{product_variant.product.name}" ya no esta disponible.'
+                    )
+                }
             if item.quantity > product_variant.remaining_stock:
                 return {
-                    "error": f'No hay suficiente stock para "{product_variant.product.name} - {product_variant.name}".'
+                    "error": (
+                        f'Not enough stock is available for "{product_variant.product.name} - {product_variant.name}".'
+                        if english
+                        else f'No hay suficiente stock para "{product_variant.product.name} - {product_variant.name}".'
+                    )
                 }
             unit_price = product_variant.product.price_usd
             line_total = (unit_price * Decimal(item.quantity)).quantize(Decimal("0.01"))
@@ -674,9 +726,21 @@ def _build_checkout_snapshot(items, event):
         else:
             ticket_type = EventTicketType.objects.select_for_update().get(pk=item.ticket_type_id)
             if not ticket_type.is_active:
-                return {"error": f'La boleta "{ticket_type.name}" ya no esta disponible.'}
+                return {
+                    "error": (
+                        f'The ticket "{ticket_type.name}" is no longer available.'
+                        if english
+                        else f'La boleta "{ticket_type.name}" ya no esta disponible.'
+                    )
+                }
             if item.quantity > ticket_type.remaining_tickets_count:
-                return {"error": f'No hay suficientes boletas "{ticket_type.name}" disponibles.'}
+                return {
+                    "error": (
+                        f'Not enough "{ticket_type.name}" tickets are available.'
+                        if english
+                        else f'No hay suficientes boletas "{ticket_type.name}" disponibles.'
+                    )
+                }
             unit_price = ticket_type.price_usd
             line_total = (unit_price * Decimal(item.quantity)).quantize(Decimal("0.01"))
             ticket_lines.append((item, ticket_type, unit_price, line_total))
@@ -685,7 +749,13 @@ def _build_checkout_snapshot(items, event):
         total_usd += line_total
 
     if total_quantity <= 0:
-        return {"error": "Tu carrito no tiene items validos."}
+        return {
+            "error": (
+                "Your cart does not contain valid items."
+                if english
+                else "Tu carrito no tiene items validos."
+            )
+        }
 
     order_ticket_type = ticket_lines[0][1] if len(ticket_lines) == 1 else None
     if len(ticket_lines) == 1:
@@ -915,7 +985,7 @@ def _fulfill_paid_order(order, snapshot):
     }
 
 
-def _preview_ticket_transfer(owner, ticket, target_email, selected_event_id):
+def _preview_ticket_transfer(owner, ticket, target_email, selected_event_id, english=False):
     normalized_email = (target_email or "").strip().lower()
     ticket_type_label = _ticket_type_label(ticket)
     transfer_state = {
@@ -927,17 +997,25 @@ def _preview_ticket_transfer(owner, ticket, target_email, selected_event_id):
         "selected_event_id": selected_event_id,
     }
     if ticket.status != Ticket.Status.UNUSED or ticket.event.has_finished():
-        transfer_state["error"] = "Solo puedes transferir boletas disponibles."
+        transfer_state["error"] = (
+            "You can only transfer available tickets."
+            if english
+            else "Solo puedes transferir boletas disponibles."
+        )
         return transfer_state
     if not normalized_email:
-        transfer_state["error"] = "Usuario invalido."
+        transfer_state["error"] = "Invalid user." if english else "Usuario invalido."
         return transfer_state
     recipient = User.objects.filter(email__iexact=normalized_email, is_active=True).first()
     if not recipient:
-        transfer_state["error"] = "Usuario invalido."
+        transfer_state["error"] = "Invalid user." if english else "Usuario invalido."
         return transfer_state
     if recipient.pk == owner.pk:
-        transfer_state["error"] = "No puedes transferirte una boleta a ti mismo."
+        transfer_state["error"] = (
+            "You cannot transfer a ticket to yourself."
+            if english
+            else "No puedes transferirte una boleta a ti mismo."
+        )
         return transfer_state
 
     transfer_state.update(
@@ -960,18 +1038,26 @@ def _preview_ticket_transfer(owner, ticket, target_email, selected_event_id):
     return transfer_state
 
 
-def _confirm_ticket_transfer(owner, ticket_id, transfer_token):
+def _confirm_ticket_transfer(owner, ticket_id, transfer_token, english=False):
     try:
         payload = signing.loads(transfer_token, salt=TRANSFER_TICKET_SALT, max_age=1800)
     except signing.BadSignature:
-        return False, "La confirmacion de transferencia no es valida."
+        return False, (
+            "The transfer confirmation is not valid."
+            if english
+            else "La confirmacion de transferencia no es valida."
+        )
 
     if (
         payload.get("ticket_id") != ticket_id
         or payload.get("owner_id") != owner.pk
         or not payload.get("recipient_id")
     ):
-        return False, "La confirmacion de transferencia no es valida."
+        return False, (
+            "The transfer confirmation is not valid."
+            if english
+            else "La confirmacion de transferencia no es valida."
+        )
 
     with transaction.atomic():
         ticket = (
@@ -981,15 +1067,27 @@ def _confirm_ticket_transfer(owner, ticket_id, transfer_token):
             .first()
         )
         if not ticket:
-            return False, "No pudimos encontrar la boleta para transferir."
+            return False, (
+                "We could not find the ticket to transfer."
+                if english
+                else "No pudimos encontrar la boleta para transferir."
+            )
         if ticket.status != Ticket.Status.UNUSED or ticket.event.has_finished():
-            return False, "Solo puedes transferir boletas disponibles."
+            return False, (
+                "You can only transfer available tickets."
+                if english
+                else "Solo puedes transferir boletas disponibles."
+            )
 
         recipient = User.objects.filter(pk=payload["recipient_id"], is_active=True).first()
         if not recipient:
-            return False, "Usuario invalido."
+            return False, "Invalid user." if english else "Usuario invalido."
         if recipient.pk == owner.pk:
-            return False, "No puedes transferirte una boleta a ti mismo."
+            return False, (
+                "You cannot transfer a ticket to yourself."
+                if english
+                else "No puedes transferirte una boleta a ti mismo."
+            )
 
         original_order = Order.objects.select_for_update().get(pk=ticket.order_id)
         order_items = list(original_order.items.select_for_update().order_by("created_at", "id"))
@@ -1078,7 +1176,11 @@ def _confirm_ticket_transfer(owner, ticket_id, transfer_token):
         f'Recibiste la boleta {transferred_ticket_type} #{ticket.raffle_number_display} del evento "{ticket.event.title}".',
         link,
     )
-    return True, f'La boleta {transferred_ticket_type} #{ticket.raffle_number_display} fue transferida a {_display_name_for_user(recipient)}.'
+    return True, (
+        f'The ticket {transferred_ticket_type} #{ticket.raffle_number_display} was transferred to {_display_name_for_user(recipient)}.'
+        if english
+        else f'La boleta {transferred_ticket_type} #{ticket.raffle_number_display} fue transferida a {_display_name_for_user(recipient)}.'
+    )
 
 
 def _notify_new_event_available(event):
@@ -1501,13 +1603,22 @@ def signup(request):
             except Exception:
                 form.add_error(
                     None,
-                    "No pudimos enviar el correo de verificacion en este momento. Intenta nuevamente.",
+                    (
+                        "We could not send the verification email right now. Please try again."
+                        if _is_english_request(request)
+                        else "No pudimos enviar el correo de verificacion en este momento. Intenta nuevamente."
+                    ),
                 )
             else:
                 request.session["pending_verification_email"] = user.email
                 messages.warning(
                     request,
-                    f"Enviamos el enlace de verificacion a {user.email}. Revisa tu bandeja de entrada y tambien la carpeta SPAM. Debes confirmar tu correo antes de iniciar sesion.",
+                    (
+                        f"We sent the verification link to {user.email}. Check your inbox and also your spam folder. "
+                        "You must confirm your email before signing in."
+                        if _is_english_request(request)
+                        else f"Enviamos el enlace de verificacion a {user.email}. Revisa tu bandeja de entrada y tambien la carpeta SPAM. Debes confirmar tu correo antes de iniciar sesion."
+                    ),
                     extra_tags="email-verification-pending",
                 )
                 return redirect("home")
@@ -1532,7 +1643,11 @@ def verify_email_confirm(request):
     if user is None:
         messages.error(
             request,
-            "El enlace de verificacion no es valido o ya expiro. Solicita uno nuevo.",
+            (
+                "The verification link is not valid or has expired. Request a new one."
+                if _is_english_request(request)
+                else "El enlace de verificacion no es valido o ya expiro. Solicita uno nuevo."
+            ),
         )
         return redirect("resend_email_verification")
 
@@ -1547,7 +1662,11 @@ def verify_email_confirm(request):
 
     messages.success(
         request,
-        "Tu correo fue confirmado correctamente. Ya puedes iniciar sesion.",
+        (
+            "Your email was confirmed successfully. You can now sign in."
+            if _is_english_request(request)
+            else "Tu correo fue confirmado correctamente. Ya puedes iniciar sesion."
+        ),
         extra_tags="email-verification-success",
     )
     return redirect("login")
@@ -1562,14 +1681,22 @@ def resend_email_verification(request):
         if user and _user_email_is_verified(user):
             messages.success(
                 request,
-                "Si la cuenta ya estaba verificada, no necesitas un nuevo enlace. Ya puedes iniciar sesion.",
+                (
+                    "If the account was already verified, you do not need a new link. You can sign in now."
+                    if _is_english_request(request)
+                    else "Si la cuenta ya estaba verificada, no necesitas un nuevo enlace. Ya puedes iniciar sesion."
+                ),
             )
             return redirect("login")
 
         if user and not _can_resend_email_verification(email):
             form.add_error(
                 "email",
-                "Ya alcanzaste el limite de 3 reenvios por hora. Intenta nuevamente mas tarde.",
+                (
+                    "You have already reached the limit of 3 resends per hour. Please try again later."
+                    if _is_english_request(request)
+                    else "Ya alcanzaste el limite de 3 reenvios por hora. Intenta nuevamente mas tarde."
+                ),
             )
         else:
             if user:
@@ -1578,7 +1705,11 @@ def resend_email_verification(request):
                 request.session["pending_verification_email"] = user.email
             messages.success(
                 request,
-                "Si encontramos una cuenta pendiente con ese correo, enviamos un nuevo enlace de verificacion.",
+                (
+                    "If we found a pending account with that email address, we sent a new verification link."
+                    if _is_english_request(request)
+                    else "Si encontramos una cuenta pendiente con ese correo, enviamos un nuevo enlace de verificacion."
+                ),
             )
             return redirect("email_verification_sent")
 
@@ -1802,6 +1933,7 @@ def purchase_event(request, pk):
 
 @login_required
 def my_tickets(request):
+    english = _is_english_request(request)
     selected_event_id_raw = (request.GET.get("event_id") or request.POST.get("selected_event_id") or "").strip()
     selected_event_id = int(selected_event_id_raw) if selected_event_id_raw.isdigit() else None
     if request.method == "POST":
@@ -1817,7 +1949,12 @@ def my_tickets(request):
             )
 
         if not ticket:
-            messages.error(request, "No pudimos encontrar la boleta seleccionada.")
+            messages.error(
+                request,
+                "We could not find the selected ticket."
+                if english
+                else "No pudimos encontrar la boleta seleccionada.",
+            )
             redirect_url = reverse("my_tickets")
             if selected_event_id:
                 redirect_url = f"{redirect_url}?event_id={selected_event_id}"
@@ -1829,6 +1966,7 @@ def my_tickets(request):
                 ticket,
                 request.POST.get("target_email", ""),
                 selected_event_id,
+                english=english,
             )
             return render(
                 request,
@@ -1845,6 +1983,7 @@ def my_tickets(request):
                 request.user,
                 ticket.pk,
                 request.POST.get("transfer_token", ""),
+                english=english,
             )
             if ok:
                 messages.success(request, message)
@@ -1855,7 +1994,10 @@ def my_tickets(request):
                 redirect_url = f"{redirect_url}?event_id={selected_event_id}"
             return redirect(redirect_url)
 
-        messages.error(request, "Accion de transferencia invalida.")
+        messages.error(
+            request,
+            "Invalid transfer action." if english else "Accion de transferencia invalida.",
+        )
         redirect_url = reverse("my_tickets")
         if selected_event_id:
             redirect_url = f"{redirect_url}?event_id={selected_event_id}"
@@ -2470,7 +2612,7 @@ def add_ticket_to_cart(request, pk):
         return HttpResponseNotAllowed(["POST"])
 
     event = get_object_or_404(Event, pk=pk, status=Event.Status.ACTIVE)
-    purchase_block_reason = _event_purchase_block_reason(event)
+    purchase_block_reason = _event_purchase_block_reason(event, english=_is_english_request(request))
     if purchase_block_reason:
         messages.error(request, purchase_block_reason)
         return redirect("event_detail", pk=event.pk)
@@ -2478,11 +2620,21 @@ def add_ticket_to_cart(request, pk):
     ticket_type_code = (request.POST.get("ticket_type") or EventTicketType.Code.GENERAL).strip().lower()
     quantity_raw = (request.POST.get("quantity") or "1").strip()
     if not quantity_raw.isdigit():
-        messages.error(request, "La cantidad seleccionada no es valida.")
+        messages.error(
+            request,
+            "The selected quantity is not valid."
+            if _is_english_request(request)
+            else "La cantidad seleccionada no es valida.",
+        )
         return redirect("event_detail", pk=event.pk)
     quantity = int(quantity_raw)
     if quantity < 1:
-        messages.error(request, "Debes agregar al menos una boleta.")
+        messages.error(
+            request,
+            "You must add at least one ticket."
+            if _is_english_request(request)
+            else "Debes agregar al menos una boleta.",
+        )
         return redirect("event_detail", pk=event.pk)
 
     ticket_type = event.ticket_types.filter(code=ticket_type_code, is_active=True).first()
@@ -2490,18 +2642,33 @@ def add_ticket_to_cart(request, pk):
         if ticket_type_code == EventTicketType.Code.GENERAL:
             ticket_type = event.ensure_general_ticket_type()
         else:
-            messages.error(request, "La boleta seleccionada no esta disponible.")
+            messages.error(
+                request,
+                "The selected ticket is not available."
+                if _is_english_request(request)
+                else "La boleta seleccionada no esta disponible.",
+            )
             return redirect("event_detail", pk=event.pk)
 
     cart = _active_cart_for_user(request.user)
     if not _ensure_cart_event(cart, event):
-        messages.error(request, "Tu carrito actual pertenece a otro evento. Vacialo primero para continuar.")
+        messages.error(
+            request,
+            "Your current cart belongs to another event. Empty it first to continue."
+            if _is_english_request(request)
+            else "Tu carrito actual pertenece a otro evento. Vacialo primero para continuar.",
+        )
         return redirect("cart_detail")
 
     existing_item = cart.items.filter(ticket_type=ticket_type).first()
     requested_total = quantity + (existing_item.quantity if existing_item else 0)
     if requested_total > ticket_type.remaining_tickets_count:
-        messages.error(request, "No hay suficientes boletas disponibles para esa cantidad.")
+        messages.error(
+            request,
+            "There are not enough tickets available for that quantity."
+            if _is_english_request(request)
+            else "No hay suficientes boletas disponibles para esa cantidad.",
+        )
         return redirect("event_detail", pk=event.pk)
 
     if existing_item:
@@ -2517,7 +2684,13 @@ def add_ticket_to_cart(request, pk):
             unit_price_usd=ticket_type.price_usd,
         )
     _sync_cart_event(cart)
-    messages.success(request, f'Se agrego {ticket_type.name} al carrito.', extra_tags="cart-added")
+    messages.success(
+        request,
+        f"{ticket_type.name} was added to the cart."
+        if _is_english_request(request)
+        else f"Se agrego {ticket_type.name} al carrito.",
+        extra_tags="cart-added",
+    )
     return redirect(_cart_return_target(request, "event_detail", pk=event.pk))
 
 
@@ -2528,7 +2701,7 @@ def add_product_to_cart(request, pk):
         return HttpResponseNotAllowed(["POST"])
 
     event = get_object_or_404(Event, pk=pk, status=Event.Status.ACTIVE)
-    purchase_block_reason = _event_purchase_block_reason(event)
+    purchase_block_reason = _event_purchase_block_reason(event, english=_is_english_request(request))
     if purchase_block_reason:
         messages.error(request, purchase_block_reason)
         return redirect("event_detail", pk=event.pk)
@@ -2536,15 +2709,30 @@ def add_product_to_cart(request, pk):
     variant_id_raw = (request.POST.get("product_variant") or "").strip()
     quantity_raw = (request.POST.get("quantity") or "1").strip()
     if not variant_id_raw.isdigit():
-        messages.error(request, "Debes seleccionar una variante valida.")
+        messages.error(
+            request,
+            "You must select a valid variant."
+            if _is_english_request(request)
+            else "Debes seleccionar una variante valida.",
+        )
         return redirect("event_detail", pk=event.pk)
     if not quantity_raw.isdigit():
-        messages.error(request, "La cantidad seleccionada no es valida.")
+        messages.error(
+            request,
+            "The selected quantity is not valid."
+            if _is_english_request(request)
+            else "La cantidad seleccionada no es valida.",
+        )
         return redirect("event_detail", pk=event.pk)
 
     quantity = int(quantity_raw)
     if quantity < 1:
-        messages.error(request, "Debes agregar al menos un producto.")
+        messages.error(
+            request,
+            "You must add at least one product."
+            if _is_english_request(request)
+            else "Debes agregar al menos un producto.",
+        )
         return redirect("event_detail", pk=event.pk)
 
     variant = (
@@ -2558,18 +2746,33 @@ def add_product_to_cart(request, pk):
         .first()
     )
     if not variant:
-        messages.error(request, "La variante seleccionada no esta disponible.")
+        messages.error(
+            request,
+            "The selected variant is not available."
+            if _is_english_request(request)
+            else "La variante seleccionada no esta disponible.",
+        )
         return redirect("event_detail", pk=event.pk)
 
     cart = _active_cart_for_user(request.user)
     if not _ensure_cart_event(cart, event):
-        messages.error(request, "Tu carrito actual pertenece a otro evento. Vacialo primero para continuar.")
+        messages.error(
+            request,
+            "Your current cart belongs to another event. Empty it first to continue."
+            if _is_english_request(request)
+            else "Tu carrito actual pertenece a otro evento. Vacialo primero para continuar.",
+        )
         return redirect("cart_detail")
 
     existing_item = cart.items.filter(product_variant=variant).first()
     requested_total = quantity + (existing_item.quantity if existing_item else 0)
     if requested_total > variant.remaining_stock:
-        messages.error(request, "No hay suficiente stock disponible para esa variante.")
+        messages.error(
+            request,
+            "There is not enough stock available for that variant."
+            if _is_english_request(request)
+            else "No hay suficiente stock disponible para esa variante.",
+        )
         return redirect("event_detail", pk=event.pk)
 
     if existing_item:
@@ -2585,7 +2788,13 @@ def add_product_to_cart(request, pk):
             unit_price_usd=variant.product.price_usd,
         )
     _sync_cart_event(cart)
-    messages.success(request, f'Se agrego {variant.product.name} al carrito.', extra_tags="cart-added")
+    messages.success(
+        request,
+        f"{variant.product.name} was added to the cart."
+        if _is_english_request(request)
+        else f"Se agrego {variant.product.name} al carrito.",
+        extra_tags="cart-added",
+    )
     return redirect(_cart_return_target(request, "event_detail", pk=event.pk))
 
 
@@ -2595,6 +2804,7 @@ def update_cart_item(request, pk):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
 
+    english = _is_english_request(request)
     cart = _active_cart_for_user(request.user)
     item = get_object_or_404(
         CartItem.objects.select_related("ticket_type", "product_variant__product"),
@@ -2603,34 +2813,47 @@ def update_cart_item(request, pk):
     )
     quantity_raw = (request.POST.get("quantity") or "").strip()
     if not quantity_raw.isdigit():
-        messages.error(request, "La cantidad seleccionada no es valida.")
+        messages.error(
+            request,
+            "The selected quantity is not valid." if english else "La cantidad seleccionada no es valida.",
+        )
         return redirect("cart_detail")
 
     quantity = int(quantity_raw)
     if quantity < 1:
-        messages.error(request, "La cantidad minima es 1.")
+        messages.error(request, "The minimum quantity is 1." if english else "La cantidad minima es 1.")
         return redirect("cart_detail")
 
     if item.item_type == CartItem.ItemType.PRODUCT:
         max_available = item.product_variant.remaining_stock + item.quantity
         if quantity > max_available:
-            messages.error(request, "La cantidad supera la disponibilidad actual.")
+            messages.error(
+                request,
+                "The selected quantity exceeds current availability."
+                if english
+                else "La cantidad supera la disponibilidad actual.",
+            )
             return redirect("cart_detail")
         item.quantity = quantity
         item.unit_price_usd = item.product_variant.product.price_usd
         item.save(update_fields=["quantity", "unit_price_usd", "updated_at"])
-        messages.success(request, "Cantidad actualizada.")
+        messages.success(request, "Quantity updated." if english else "Cantidad actualizada.")
         return redirect("cart_detail")
 
     max_available = item.ticket_type.remaining_tickets_count
     if quantity > max_available:
-        messages.error(request, "La cantidad supera la disponibilidad actual.")
+        messages.error(
+            request,
+            "The selected quantity exceeds current availability."
+            if english
+            else "La cantidad supera la disponibilidad actual.",
+        )
         return redirect("cart_detail")
 
     item.quantity = quantity
     item.unit_price_usd = item.ticket_type.price_usd
     item.save(update_fields=["quantity", "unit_price_usd", "updated_at"])
-    messages.success(request, "Cantidad actualizada.")
+    messages.success(request, "Quantity updated." if english else "Cantidad actualizada.")
     return redirect("cart_detail")
 
 
@@ -2640,11 +2863,12 @@ def remove_cart_item(request, pk):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
 
+    english = _is_english_request(request)
     cart = _active_cart_for_user(request.user)
     item = get_object_or_404(CartItem, pk=pk, cart=cart)
     item.delete()
     _sync_cart_event(cart)
-    messages.success(request, "Item eliminado del carrito.")
+    messages.success(request, "Item removed from cart." if english else "Item eliminado del carrito.")
     return redirect("cart_detail")
 
 
@@ -2654,23 +2878,25 @@ def clear_cart(request):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
 
+    english = _is_english_request(request)
     cart = _active_cart_for_user(request.user)
     cart.items.all().delete()
     _sync_cart_event(cart)
-    messages.success(request, "Carrito vaciado.")
+    messages.success(request, "Cart cleared." if english else "Carrito vaciado.")
     return redirect("cart_detail")
 
 
 @login_required
 @user_passes_test(lambda user: not user.is_staff)
 def checkout_cart(request):
+    english = _is_english_request(request)
     cart = _active_cart_for_user(request.user)
     cart = _sync_cart_event(cart)
     items = list(
         cart.items.select_related("ticket_type__event", "product_variant__product__event").order_by("created_at", "id")
     )
     if not items:
-        messages.error(request, "Tu carrito esta vacio.")
+        messages.error(request, "Your cart is empty." if english else "Tu carrito esta vacio.")
         return redirect("cart_detail")
 
     if request.method == "GET":
@@ -2696,22 +2922,33 @@ def checkout_cart(request):
                     cart.items.select_related("ticket_type__event", "product_variant__product__event").order_by("created_at", "id")
                 )
                 if not items:
-                    messages.error(request, "Tu carrito esta vacio.")
+                    messages.error(request, "Your cart is empty." if english else "Tu carrito esta vacio.")
                     return redirect("cart_detail")
 
                 event = cart.event or items[0].event
                 if event is not None:
                     event = Event.objects.select_for_update().get(pk=event.pk)
                     if event.status != Event.Status.ACTIVE:
-                        messages.error(request, "El evento asociado a tu carrito ya no esta disponible.")
+                        messages.error(
+                            request,
+                            "The event linked to your cart is no longer available."
+                            if english
+                            else "El evento asociado a tu carrito ya no esta disponible.",
+                        )
                         return redirect("cart_detail")
-                    purchase_block_reason = _event_purchase_block_reason(event)
+                    purchase_block_reason = _event_purchase_block_reason(event, english=english)
                     if purchase_block_reason:
-                        if purchase_block_reason == "Este evento ya finalizo.":
-                            purchase_block_reason = "Este evento ya finalizo y no admite nuevas compras."
+                        if purchase_block_reason == (
+                            "This event has already ended." if english else "Este evento ya finalizo."
+                        ):
+                            purchase_block_reason = (
+                                "This event has already ended and no longer accepts new purchases."
+                                if english
+                                else "Este evento ya finalizo y no admite nuevas compras."
+                            )
                         messages.error(request, purchase_block_reason)
                         return redirect("cart_detail")
-                snapshot = _build_checkout_snapshot(items, event)
+                snapshot = _build_checkout_snapshot(items, event, english=english)
                 if snapshot.get("error"):
                     messages.error(request, snapshot["error"])
                     return redirect("cart_detail")
@@ -2730,7 +2967,11 @@ def checkout_cart(request):
         except (OperationalError, IntegrityError):
             if attempt == max_attempts - 1:
                 return HttpResponse(
-                    "No fue posible completar el checkout. Intenta de nuevo.",
+                    (
+                        "We could not complete checkout. Please try again."
+                        if english
+                        else "No fue posible completar el checkout. Intenta de nuevo."
+                    ),
                     status=503,
                 )
             continue
@@ -2754,6 +2995,7 @@ def start_stripe_checkout(request, order_id):
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
 
+    english = _is_english_request(request)
     order = get_object_or_404(
         Order.objects.select_related("event").prefetch_related("items"),
         pk=order_id,
@@ -2761,7 +3003,12 @@ def start_stripe_checkout(request, order_id):
         status=Order.Status.PENDING,
     )
     if order.is_payment_final:
-        messages.error(request, "Esta orden ya no esta disponible para iniciar pago.")
+        messages.error(
+            request,
+            "This order is no longer available to start payment."
+            if english
+            else "Esta orden ya no esta disponible para iniciar pago.",
+        )
         return redirect("cart_detail")
 
     stripe_redirect = _redirect_order_to_stripe_checkout(
@@ -3232,6 +3479,7 @@ def user_ticket_qrs_by_user(request, user_id):
 
 @login_required
 def edit_profile(request):
+    english = _is_english_request(request)
     profile, _ = Profile.objects.get_or_create(user=request.user)
     form = ProfileForm(request.POST or None, request.FILES or None, instance=profile)
     email_form = UserEmailUpdateForm(request.POST or None, user=request.user)
@@ -3239,8 +3487,8 @@ def edit_profile(request):
         form.save()
         request.user.email = email_form.cleaned_data["email"]
         request.user.save(update_fields=["email"])
-        messages.success(request, "Cambios guardados.")
-        return redirect("home")
+        messages.success(request, "Changes saved." if english else "Cambios guardados.")
+        return redirect("edit_profile")
 
     return render(
         request,

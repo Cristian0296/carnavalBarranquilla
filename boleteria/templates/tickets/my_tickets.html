@@ -1,14 +1,14 @@
 ﻿{% extends "base.html" %}
-{% block title %}Mis entradas QR | Boletas QR{% endblock %}
+{% block title %}{% if is_english %}My QR Tickets{% else %}Mis entradas QR{% endif %} | Boletas QR{% endblock %}
 {% block content %}
   <h1 class="mb-6 text-2xl font-semibold text-brand-900">
-    <span class="title-top">Mis compras</span>
+    <span class="title-top">{% if is_english %}My purchases{% else %}Mis compras{% endif %}</span>
     <span class="title-bottom">y QR</span>
   </h1>
   {% if event_cards %}
     <section class="panel mb-6 p-4">
-      <h2 class="text-lg font-semibold text-brand-900">Tus eventos y entradas QR</h2>
-      <p class="mt-2 text-sm text-slate-600">Aqui tambien veras los productos comprados y sus codigos de reclamacion.</p>
+      <h2 class="text-lg font-semibold text-brand-900">{% if is_english %}Your events and QR tickets{% else %}Tus eventos y entradas QR{% endif %}</h2>
+      <p class="mt-2 text-sm text-slate-600">{% if is_english %}You will also see purchased products and their pickup codes here.{% else %}Aqui tambien veras los productos comprados y sus codigos de reclamacion.{% endif %}</p>
       <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {% for card in event_cards %}
           <a
@@ -23,24 +23,24 @@
             <div class="min-w-0">
               <p class="text-sm font-semibold text-slate-900 break-words">{{ card.event.title }}</p>
               <p class="text-xs text-slate-600">
-                Inicio: {{ card.event.datetime }}<br>
-                Fin:
+                {% if is_english %}Start:{% else %}Inicio:{% endif %} {{ card.event.datetime }}<br>
+                {% if is_english %}End:{% else %}Fin:{% endif %}
                 {% if card.event.end_datetime %}
                   {{ card.event.end_datetime }}
                 {% else %}
-                  Sin fecha de fin
+                  {% if is_english %}No end date{% else %}Sin fecha de fin{% endif %}
                 {% endif %}
               </p>
-              <p class="text-xs text-slate-600">{{ card.participation_count }} entradas QR</p>
+              <p class="text-xs text-slate-600">{% if is_english %}{{ card.participation_count }} QR ticket{{ card.participation_count|pluralize }}{% else %}{{ card.participation_count }} entradas QR{% endif %}</p>
               {% if card.product_purchase_count %}
-                <p class="text-xs text-slate-600">{{ card.product_purchase_count }} compra{{ card.product_purchase_count|pluralize }} de productos</p>
+                <p class="text-xs text-slate-600">{% if is_english %}{{ card.product_purchase_count }} product purchase{{ card.product_purchase_count|pluralize }}{% else %}{{ card.product_purchase_count }} compra{{ card.product_purchase_count|pluralize }} de productos{% endif %}</p>
               {% endif %}
               {% if card.event.has_finished %}
                 {% if card.event.cleanup_at %}
-                  <p class="text-xs text-amber-700">Sorteo finalizado. Las boletas se eliminarán el {{ card.event.cleanup_at }}</p>
+                  <p class="text-xs text-amber-700">{% if is_english %}Finished raffle. Tickets will be deleted on {{ card.event.cleanup_at }}{% else %}Sorteo finalizado. Las boletas se eliminarán el {{ card.event.cleanup_at }}{% endif %}</p>
                 {% endif %}
               {% else %}
-                <p class="text-xs text-slate-600">Las boletas se eliminarán automáticamente 45 días después del sorteo.</p>
+                <p class="text-xs text-slate-600">{% if is_english %}Tickets will be deleted automatically 45 days after the raffle.{% else %}Las boletas se eliminarán automáticamente 45 días después del sorteo.{% endif %}</p>
               {% endif %}
             </div>
           </a>
@@ -52,42 +52,42 @@
       <section class="panel p-5">
         <div class="mb-4 flex items-center justify-between gap-3">
           <div>
-            <h2 class="text-lg font-semibold text-brand-900">Compras de {{ selected_event.title }}</h2>
+            <h2 class="text-lg font-semibold text-brand-900">{% if is_english %}Purchases for{% else %}Compras de{% endif %} {{ selected_event.title }}</h2>
             <p class="mt-1 text-sm text-slate-600">
-              Comienza: {{ selected_event.datetime }} |
-              Finaliza:
+              {% if is_english %}Starts:{% else %}Comienza:{% endif %} {{ selected_event.datetime }} |
+              {% if is_english %}Ends:{% else %}Finaliza:{% endif %}
               {% if selected_event.end_datetime %}
                 {{ selected_event.end_datetime }}
               {% else %}
-                Sin fecha de fin
+                {% if is_english %}No end date{% else %}Sin fecha de fin{% endif %}
               {% endif %}
             </p>
             {% if selected_event.has_finished %}
               {% if selected_event.cleanup_at %}
                 <p class="mt-1 text-sm text-amber-700">
-                  Este sorteo finalizado conserva boletas por 45 días. Eliminación automática: {{ selected_event.cleanup_at }}.
+                  {% if is_english %}This finished raffle keeps tickets for 45 days. Automatic deletion: {{ selected_event.cleanup_at }}.{% else %}Este sorteo finalizado conserva boletas por 45 días. Eliminación automática: {{ selected_event.cleanup_at }}.{% endif %}
                 </p>
               {% endif %}
             {% else %}
               <p class="mt-1 text-sm text-slate-600">
-                Las boletas se eliminarán automáticamente 45 días después del sorteo.
+                {% if is_english %}Tickets will be deleted automatically 45 days after the raffle.{% else %}Las boletas se eliminarán automáticamente 45 días después del sorteo.{% endif %}
               </p>
             {% endif %}
           </div>
-          <a class="link-primary text-sm" href="{% url 'my_tickets' %}">Volver a eventos</a>
+          <a class="link-primary text-sm" href="{% url 'my_tickets' %}">{% if is_english %}Back to events{% else %}Volver a eventos{% endif %}</a>
         </div>
         {% if product_redemptions %}
           <div class="mb-5 space-y-4">
-            <h3 class="text-base font-semibold text-brand-900">Productos para reclamar</h3>
+            <h3 class="text-base font-semibold text-brand-900">{% if is_english %}Products to claim{% else %}Productos para reclamar{% endif %}</h3>
             {% for row in product_redemptions %}
               <article class="rounded-[1.5rem] border border-slate-200 bg-white p-4">
-                <p class="text-sm"><strong>Codigo de reclamacion:</strong> {{ row.redemption.code }}</p>
-                <p class="text-sm"><strong>Estado:</strong> {{ row.redemption.get_status_display }}</p>
+                <p class="text-sm"><strong>{% if is_english %}Pickup code:{% else %}Codigo de reclamacion:{% endif %}</strong> {{ row.redemption.code }}</p>
+                <p class="text-sm"><strong>{% if is_english %}Status:{% else %}Estado:{% endif %}</strong> {% if is_english %}{% if row.redemption.status == 'PENDING' %}Pending{% else %}Delivered{% endif %}{% else %}{{ row.redemption.get_status_display }}{% endif %}</p>
                 {% if row.redemption.delivered_at %}
-                  <p class="text-sm"><strong>Entregado:</strong> {{ row.redemption.delivered_at }}</p>
+                  <p class="text-sm"><strong>{% if is_english %}Delivered:{% else %}Entregado:{% endif %}</strong> {{ row.redemption.delivered_at }}</p>
                 {% endif %}
                 <div class="mt-3">
-                  <p class="text-sm font-semibold text-slate-900">Detalle</p>
+                  <p class="text-sm font-semibold text-slate-900">{% if is_english %}Details{% else %}Detalle{% endif %}</p>
                   <ul class="mt-2 space-y-2">
                     {% for item in row.product_items %}
                       <li class="rounded-xl bg-[#F8FBFF] px-3 py-2 text-sm text-slate-700">
@@ -108,24 +108,24 @@
             {% for row in tickets_with_qr %}
               <article class="rounded-[1.5rem] border p-4 {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}border-[#C8A23A] bg-[linear-gradient(145deg,#0B0B0D_0%,#1A1A1F_55%,#2A2212_100%)] !text-slate-100 shadow-[0_18px_40px_rgba(20,20,24,0.35)]{% else %}border-slate-200 bg-white{% endif %}">
                 <p class="text-sm {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}!text-slate-100{% endif %}">
-                  <strong class="{% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}!text-white{% endif %}">Tipo de entrada:</strong>
+                  <strong class="{% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}!text-white{% endif %}">{% if is_english %}Ticket type:{% else %}Tipo de entrada:{% endif %}</strong>
                   <span class="inline-flex rounded-full px-2 py-1 text-xs font-bold uppercase tracking-[0.18em] {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}bg-[#C8A23A] !text-[#0B0B0D]{% else %}bg-[#EAF2FF] text-[#0D2A5C]{% endif %}">
                     {% if row.ticket.ticket_type %}{{ row.ticket.ticket_type.name }}{% else %}General{% endif %}
                   </span>
                 </p>
-                <p class="text-sm {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}!text-slate-100{% endif %}"><strong class="{% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}!text-white{% endif %}">Número de entrada:</strong> {{ row.ticket.raffle_number_display }}</p>
-                <p class="text-sm {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}!text-slate-100{% endif %}"><strong class="{% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}!text-white{% endif %}">Estado:</strong> {{ row.ticket.get_status_display }}</p>
-                <p class="text-sm {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}!text-slate-100{% endif %}"><strong class="{% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}!text-white{% endif %}">Emitido:</strong> {{ row.ticket.issued_at }}</p>
+                <p class="text-sm {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}!text-slate-100{% endif %}"><strong class="{% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}!text-white{% endif %}">{% if is_english %}Ticket number:{% else %}Número de entrada:{% endif %}</strong> {{ row.ticket.raffle_number_display }}</p>
+                <p class="text-sm {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}!text-slate-100{% endif %}"><strong class="{% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}!text-white{% endif %}">{% if is_english %}Status:{% else %}Estado:{% endif %}</strong> {% if is_english %}{% if row.ticket.status == 'UNUSED' %}Available{% elif row.ticket.status == 'USED' %}Used{% else %}Voided{% endif %}{% else %}{{ row.ticket.get_status_display }}{% endif %}</p>
+                <p class="text-sm {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}!text-slate-100{% endif %}"><strong class="{% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}!text-white{% endif %}">{% if is_english %}Issued:{% else %}Emitido:{% endif %}</strong> {{ row.ticket.issued_at }}</p>
                 {% if row.is_expired %}
                   <p class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                    Esta boleta venció porque el sorteo terminó.
+                    {% if is_english %}This ticket expired because the raffle ended.{% else %}Esta boleta venció porque el sorteo terminó.{% endif %}
                     {% if row.ticket.event.cleanup_at %}
-                      Se eliminará automáticamente el {{ row.ticket.event.cleanup_at }}.
+                      {% if is_english %} It will be deleted automatically on {{ row.ticket.event.cleanup_at }}.{% else %} Se eliminará automáticamente el {{ row.ticket.event.cleanup_at }}.{% endif %}
                     {% endif %}
                   </p>
                 {% else %}
                   {% if row.qr_data_uri %}
-                    <p class="mt-3 text-sm {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}!text-white{% else %}text-slate-600{% endif %}">Presenta este codigo QR al ingresar.</p>
+                    <p class="mt-3 text-sm {% if row.ticket.ticket_type and row.ticket.ticket_type.code == 'vip' %}!text-white{% else %}text-slate-600{% endif %}">{% if is_english %}Present this QR code at entry.{% else %}Presenta este codigo QR al ingresar.{% endif %}</p>
                     <div class="mt-3 inline-block rounded-[1.25rem] bg-white p-4 shadow-soft">
                       <img class="w-full max-w-44 rounded-lg border border-slate-200" src="{{ row.qr_data_uri }}" alt="Ticket QR {{ row.ticket.ticket_uuid }}">
                     </div>
@@ -136,7 +136,7 @@
                     class="btn-neutral !border-[#FF7A00] !bg-[#FF7A00] px-3 py-2 text-sm !text-white hover:!border-[#E66F00] hover:!bg-[#E66F00] hover:!text-white"
                     href="{% url 'download_ticket_qr_jpg' row.ticket.id %}"
                   >
-                    Descargar QR (JPG)
+                    {% if is_english %}Download QR (JPG){% else %}Descargar QR (JPG){% endif %}
                   </a>
                   {% if not row.is_expired and row.ticket.status == "UNUSED" %}
                     <button
@@ -147,7 +147,7 @@
                       data-ticket-number="{{ row.ticket.raffle_number_display }}"
                       data-selected-event-id="{{ selected_event_id|default:'' }}"
                     >
-                      Transferir entrada
+                      {% if is_english %}Transfer ticket{% else %}Transferir entrada{% endif %}
                     </button>
                   {% endif %}
                 </div>
@@ -155,17 +155,17 @@
             {% endfor %}
           </div>
         {% elif not product_redemptions %}
-          <p class="panel-soft p-4">No hay compras registradas para este evento.</p>
+          <p class="panel-soft p-4">{% if is_english %}There are no purchases recorded for this event.{% else %}No hay compras registradas para este evento.{% endif %}</p>
         {% endif %}
       </section>
     {% else %}
-      <p class="panel-soft p-4">Selecciona un evento para ver tus entradas QR y productos.</p>
+      <p class="panel-soft p-4">{% if is_english %}Select an event to view your QR tickets and products.{% else %}Selecciona un evento para ver tus entradas QR y productos.{% endif %}</p>
     {% endif %}
   {% else %}
-    <p class="panel-soft p-4">Aún no tienes compras registradas.</p>
+    <p class="panel-soft p-4">{% if is_english %}You do not have any recorded purchases yet.{% else %}Aún no tienes compras registradas.{% endif %}</p>
   {% endif %}
 
-  <p class="mt-6"><a class="link-primary" href="{% url 'event_list' %}">Ver eventos</a></p>
+  <p class="mt-6"><a class="link-primary" href="{% url 'event_list' %}">{% if is_english %}View events{% else %}Ver eventos{% endif %}</a></p>
 
   <div
     id="ticket-transfer-modal"
@@ -176,27 +176,27 @@
   >
     <div class="w-full max-w-md rounded-[1.75rem] border border-white/25 bg-[linear-gradient(135deg,rgba(255,248,232,0.99)_0%,rgba(255,255,255,0.96)_100%)] p-6 shadow-glow">
       {% if transfer_state and transfer_state.mode == "confirm" %}
-        <h3 id="ticket-transfer-title" class="text-lg font-semibold text-slate-900">Confirmar transferencia</h3>
+        <h3 id="ticket-transfer-title" class="text-lg font-semibold text-slate-900">{% if is_english %}Confirm transfer{% else %}Confirmar transferencia{% endif %}</h3>
         <p class="mt-2 text-sm text-slate-700">
-          Estas seguro de transferir la boleta {{ transfer_state.ticket_type_name|default:"General" }} #{{ transfer_state.ticket_number }} a nombre de {{ transfer_state.recipient_name }}?
+          {% if is_english %}Are you sure you want to transfer the {{ transfer_state.ticket_type_name|default:"General" }} ticket #{{ transfer_state.ticket_number }} to {{ transfer_state.recipient_name }}?{% else %}Estas seguro de transferir la boleta {{ transfer_state.ticket_type_name|default:"General" }} #{{ transfer_state.ticket_number }} a nombre de {{ transfer_state.recipient_name }}?{% endif %}
         </p>
         <p class="mt-2 text-sm text-slate-500">{{ transfer_state.recipient_email }}</p>
         <div class="mt-5 flex items-center justify-end gap-2">
-          <button id="ticket-transfer-cancel" class="btn-neutral !border-slate-300 !bg-white hover:!text-white" style="color:#0D2A5C !important;" type="button">Cancelar</button>
+          <button id="ticket-transfer-cancel" class="btn-neutral !border-slate-300 !bg-white hover:!text-white" style="color:#0D2A5C !important;" type="button">{% if is_english %}Cancel{% else %}Cancelar{% endif %}</button>
           <form method="post" action="{% url 'my_tickets' %}">
             {% csrf_token %}
             <input type="hidden" name="action" value="confirm">
             <input type="hidden" name="ticket_id" value="{{ transfer_state.ticket_id }}">
             <input type="hidden" name="selected_event_id" value="{{ transfer_state.selected_event_id|default:'' }}">
             <input type="hidden" name="transfer_token" value="{{ transfer_state.transfer_token }}">
-            <button class="btn-primary green-hover" type="submit">Si</button>
+            <button class="btn-primary green-hover" type="submit">{% if is_english %}Yes{% else %}Si{% endif %}</button>
           </form>
         </div>
       {% else %}
-        <h3 id="ticket-transfer-title" class="text-lg font-semibold text-slate-900">Transferir entrada</h3>
-        <p class="mt-2 text-sm text-slate-700">Ingresa el correo del usuario registrado en la plataforma que recibira esta boleta.</p>
+        <h3 id="ticket-transfer-title" class="text-lg font-semibold text-slate-900">{% if is_english %}Transfer ticket{% else %}Transferir entrada{% endif %}</h3>
+        <p class="mt-2 text-sm text-slate-700">{% if is_english %}Enter the email of the registered platform user who will receive this ticket.{% else %}Ingresa el correo del usuario registrado en la plataforma que recibira esta boleta.{% endif %}</p>
         {% if transfer_state and transfer_state.ticket_type_name and transfer_state.ticket_number %}
-          <p class="mt-2 text-sm text-slate-600">Boleta seleccionada: <strong>{{ transfer_state.ticket_type_name }} #{{ transfer_state.ticket_number }}</strong></p>
+          <p class="mt-2 text-sm text-slate-600">{% if is_english %}Selected ticket:{% else %}Boleta seleccionada:{% endif %} <strong>{{ transfer_state.ticket_type_name }} #{{ transfer_state.ticket_number }}</strong></p>
         {% endif %}
         <form class="mt-4 space-y-4" method="post" action="{% url 'my_tickets' %}">
           {% csrf_token %}
@@ -204,14 +204,14 @@
           <input id="transfer-ticket-id" type="hidden" name="ticket_id" value="{{ transfer_state.ticket_id|default:'' }}">
           <input id="transfer-selected-event-id" type="hidden" name="selected_event_id" value="{{ transfer_state.selected_event_id|default:selected_event_id|default:'' }}">
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="transfer-target-email">Correo electronico</label>
+            <label class="block text-sm font-medium text-slate-700" for="transfer-target-email">{% if is_english %}Email address{% else %}Correo electronico{% endif %}</label>
             <input
               id="transfer-target-email"
               class="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2"
               type="email"
               name="target_email"
               value="{{ transfer_state.target_email|default:'' }}"
-              placeholder="usuario@correo.com"
+              placeholder="{% if is_english %}user@example.com{% else %}usuario@correo.com{% endif %}"
               required
             >
           </div>
@@ -219,8 +219,8 @@
             <p class="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{{ transfer_state.error }}</p>
           {% endif %}
           <div class="flex items-center justify-end gap-2">
-            <button id="ticket-transfer-cancel" class="btn-neutral !border-slate-300 !bg-white hover:!text-white" style="color:#0D2A5C !important;" type="button">Cancelar</button>
-            <button class="btn-primary green-hover" type="submit">Validar usuario</button>
+            <button id="ticket-transfer-cancel" class="btn-neutral !border-slate-300 !bg-white hover:!text-white" style="color:#0D2A5C !important;" type="button">{% if is_english %}Cancel{% else %}Cancelar{% endif %}</button>
+            <button class="btn-primary green-hover" type="submit">{% if is_english %}Validate user{% else %}Validar usuario{% endif %}</button>
           </div>
         </form>
       {% endif %}

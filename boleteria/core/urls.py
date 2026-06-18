@@ -54,6 +54,7 @@ from .views import (
     submit_event_review,
     signup,
     start_stripe_checkout,
+    set_public_language,
     stripe_checkout_cancel,
     stripe_checkout_success,
     stripe_webhook,
@@ -76,6 +77,7 @@ from .views import (
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
+    path("language/", set_public_language, name="set_public_language"),
     path("robots.txt", robots_txt, name="robots_txt"),
     path("sitemap.xml", sitemap_xml, name="sitemap_xml"),
     path("rules/", rules_page, name="rules_page"),

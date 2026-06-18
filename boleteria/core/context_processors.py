@@ -9,6 +9,7 @@ def notifications_context(request):
     cart_items_count = 0
     site_settings = SiteSettings.objects.filter(pk=1).first()
     user = getattr(request, "user", None)
+    show_public_language_selector = True
     if user and user.is_authenticated:
         count = Notification.objects.filter(user=user, is_read=False).count()
         if not user.is_staff:
@@ -18,9 +19,14 @@ def notifications_context(request):
                 .get("total")
                 or 0
             )
+        if user.is_staff or user.has_perm("core.can_validate_tickets"):
+            show_public_language_selector = False
     return {
         "unread_notifications_count": count,
         "cart_items_count": cart_items_count,
+        "current_public_language": getattr(request, "LANGUAGE_CODE", "es"),
+        "is_english": getattr(request, "LANGUAGE_CODE", "es") == "en",
+        "show_public_language_selector": show_public_language_selector,
         "enable_google_auth": getattr(settings, "ENABLE_GOOGLE_AUTH", False),
         "site_social_links": {
             "whatsapp": site_settings.whatsapp_url if site_settings else "",

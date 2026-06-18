@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Momentos | Boletas QR{% endblock %}
+{% block title %}{% if is_english %}Moments{% else %}Momentos{% endif %} | Boletas QR{% endblock %}
 {% block content %}
   <section class="relative overflow-hidden rounded-[2rem] border border-white/15 bg-[linear-gradient(145deg,rgba(255,248,232,0.98)_0%,rgba(255,255,255,0.95)_46%,rgba(245,197,24,0.22)_100%)] p-6 shadow-glow sm:p-8 lg:p-10">
     <div class="pointer-events-none absolute -left-14 top-0 h-44 w-44 rounded-full bg-[#00AEEF]/20 blur-3xl"></div>
@@ -8,18 +8,18 @@
 
     <div class="relative text-center">
       <span class="inline-flex rounded-full border border-[#FFB347] bg-[linear-gradient(135deg,#FF7A00_0%,#FFA033_100%)] px-4 py-2 text-sm font-bold uppercase tracking-[0.22em] text-white shadow-lg">
-        Momentos del Carnaval
+        {% if is_english %}Carnival moments{% else %}Momentos del Carnaval{% endif %}
       </span>
       <h1 class="mt-5 text-3xl font-extrabold !text-[#0D2A5C] sm:text-4xl lg:text-5xl">
-        <span class="title-top">Revive nuestros</span>
-        <span class="title-bottom">momentos</span>
+        <span class="title-top">{% if is_english %}Relive our{% else %}Revive nuestros{% endif %}</span>
+        <span class="title-bottom">{% if is_english %}moments{% else %}momentos{% endif %}</span>
       </h1>
       <p class="mx-auto mt-4 max-w-3xl text-lg leading-8 text-slate-700 sm:text-xl">
-        Una galeria viva con bloques visuales llenos de recuerdos, color, musica y escenas del Carnaval que seguimos compartiendo con la comunidad.
+        {% if is_english %}A living gallery with visual blocks full of memories, color, music, and Carnival scenes that we keep sharing with the community.{% else %}Una galeria viva con bloques visuales llenos de recuerdos, color, musica y escenas del Carnaval que seguimos compartiendo con la comunidad.{% endif %}
       </p>
       {% if user.is_staff %}
         <div class="mt-6 flex justify-center">
-          <a class="btn-primary" href="{% url 'manage_moments' %}">Agregar un momento</a>
+          <a class="btn-primary" href="{% url 'manage_moments' %}">{% if is_english %}Add a moment{% else %}Agregar un momento{% endif %}</a>
         </div>
       {% endif %}
     </div>
@@ -32,8 +32,8 @@
           <div class="grid gap-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
             <div class="rounded-[1.5rem] bg-white/10 p-5 backdrop-blur-sm">
               <div class="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[0.18em]">
-                <span class="rounded-full bg-[#FF7A00] px-3 py-1 text-white">Momento</span>
-                <span class="rounded-full bg-[#F5C518] px-3 py-1 text-[#0D2A5C]">{{ block.media_items.count }} elementos</span>
+                <span class="rounded-full bg-[#FF7A00] px-3 py-1 text-white">{% if is_english %}Moment{% else %}Momento{% endif %}</span>
+                <span class="rounded-full bg-[#F5C518] px-3 py-1 text-[#0D2A5C]">{% if is_english %}{{ block.media_items.count }} item{{ block.media_items.count|pluralize }}{% else %}{{ block.media_items.count }} elementos{% endif %}</span>
               </div>
               <h2 class="mt-4 text-3xl font-extrabold !text-white sm:text-4xl">{{ block.title }}</h2>
               {% if block.description %}
@@ -41,10 +41,10 @@
               {% endif %}
               {% if user.is_staff %}
                 <div class="mt-4 flex flex-wrap gap-3">
-                  <a class="btn-primary px-4 py-2 text-sm" href="{% url 'update_moment_block' block.pk %}">Editar</a>
-                  <form class="js-confirm-delete" data-confirm-message="Si eliminas este bloque de Momentos, se borraran su titulo, descripcion, fotos y videos. ¿Deseas continuar?" method="post" action="{% url 'delete_moment_block' block.pk %}">
+                  <a class="btn-primary px-4 py-2 text-sm" href="{% url 'update_moment_block' block.pk %}">{% if is_english %}Edit{% else %}Editar{% endif %}</a>
+                  <form class="js-confirm-delete" data-confirm-message="{% if is_english %}If you delete this Moments block, its title, description, photos, and videos will be removed. Do you want to continue?{% else %}Si eliminas este bloque de Momentos, se borraran su titulo, descripcion, fotos y videos. Deseas continuar?{% endif %}" method="post" action="{% url 'delete_moment_block' block.pk %}">
                     {% csrf_token %}
-                    <button class="btn-danger px-4 py-2 text-sm" type="submit">Eliminar</button>
+                    <button class="btn-danger px-4 py-2 text-sm" type="submit">{% if is_english %}Delete{% else %}Eliminar{% endif %}</button>
                   </form>
                 </div>
               {% endif %}
@@ -65,15 +65,15 @@
                 {% endfor %}
 
                 {% if block.media_items.count > 1 %}
-                  <button class="absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full border border-[#F5D77E]/65 bg-[#0D2A5C]/78 px-3 py-2 text-2xl font-black text-[#F5D77E] shadow-[0_12px_24px_rgba(8,26,56,0.35)] backdrop-blur-sm transition hover:scale-105 hover:bg-[#1F5FBF]/88 hover:text-white" type="button" data-carousel-prev aria-label="Anterior">&#8249;</button>
-                  <button class="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full border border-[#F5D77E]/65 bg-[#0D2A5C]/78 px-3 py-2 text-2xl font-black text-[#F5D77E] shadow-[0_12px_24px_rgba(8,26,56,0.35)] backdrop-blur-sm transition hover:scale-105 hover:bg-[#1F5FBF]/88 hover:text-white" type="button" data-carousel-next aria-label="Siguiente">&#8250;</button>
+                  <button class="absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full border border-[#F5D77E]/65 bg-[#0D2A5C]/78 px-3 py-2 text-2xl font-black text-[#F5D77E] shadow-[0_12px_24px_rgba(8,26,56,0.35)] backdrop-blur-sm transition hover:scale-105 hover:bg-[#1F5FBF]/88 hover:text-white" type="button" data-carousel-prev aria-label="{% if is_english %}Previous{% else %}Anterior{% endif %}">&#8249;</button>
+                  <button class="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full border border-[#F5D77E]/65 bg-[#0D2A5C]/78 px-3 py-2 text-2xl font-black text-[#F5D77E] shadow-[0_12px_24px_rgba(8,26,56,0.35)] backdrop-blur-sm transition hover:scale-105 hover:bg-[#1F5FBF]/88 hover:text-white" type="button" data-carousel-next aria-label="{% if is_english %}Next{% else %}Siguiente{% endif %}">&#8250;</button>
                 {% endif %}
               </div>
 
               {% if block.media_items.count > 1 %}
                 <div class="flex flex-wrap justify-center gap-2" data-carousel-dots>
                   {% for media in block.media_items.all %}
-                    <button class="h-3 w-3 rounded-full {% if forloop.first %}bg-[#F5C518]{% else %}bg-white/35{% endif %}" type="button" data-carousel-dot="{{ forloop.counter0 }}" aria-label="Ir al elemento {{ forloop.counter }}"></button>
+                    <button class="h-3 w-3 rounded-full {% if forloop.first %}bg-[#F5C518]{% else %}bg-white/35{% endif %}" type="button" data-carousel-dot="{{ forloop.counter0 }}" aria-label="{% if is_english %}Go to item {{ forloop.counter }}{% else %}Ir al elemento {{ forloop.counter }}{% endif %}"></button>
                   {% endfor %}
                 </div>
               {% endif %}
@@ -84,8 +84,8 @@
     </div>
   {% else %}
     <div class="panel-soft mt-8 p-6 text-center">
-      <h2 class="text-2xl font-semibold text-brand-900">Aun no hay momentos publicados</h2>
-      <p class="mt-3 text-slate-700">Cuando el admin cree bloques con fotos o videos, apareceran aqui.</p>
+      <h2 class="text-2xl font-semibold text-brand-900">{% if is_english %}No moments have been published yet{% else %}Aun no hay momentos publicados{% endif %}</h2>
+      <p class="mt-3 text-slate-700">{% if is_english %}When the admin creates blocks with photos or videos, they will appear here.{% else %}Cuando el admin cree bloques con fotos o videos, apareceran aqui.{% endif %}</p>
     </div>
   {% endif %}
 {% endblock %}

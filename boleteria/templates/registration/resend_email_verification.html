@@ -1,18 +1,22 @@
 {% extends "base.html" %}
-{% block title %}Reenviar verificación | Boletas QR{% endblock %}
+{% block title %}{% if is_english %}Resend Verification | Boletas QR{% else %}Reenviar verificacion | Boletas QR{% endif %}{% endblock %}
 {% block content %}
   <section class="mx-auto max-w-3xl">
     <div class="panel p-6 lg:p-8">
-      <h1 class="text-3xl font-semibold text-brand-900">Reenviar correo de verificacion</h1>
+      <h1 class="text-3xl font-semibold text-brand-900">{% if is_english %}Resend verification email{% else %}Reenviar correo de verificacion{% endif %}</h1>
       <p class="mt-3 text-base leading-7 text-slate-600">
-        Si tu cuenta sigue pendiente, te enviaremos un nuevo enlace. El limite es de 3 reenvios por hora.
+        {% if is_english %}
+          If your account is still pending, we will send you a new link. The limit is 3 resends per hour.
+        {% else %}
+          Si tu cuenta sigue pendiente, te enviaremos un nuevo enlace. El limite es de 3 reenvios por hora.
+        {% endif %}
       </p>
       <form class="mt-6 space-y-3" method="post">
         {% csrf_token %}
         {{ form.as_p }}
-        <button class="btn-primary w-full sm:w-auto" type="submit">Enviar nuevo enlace</button>
+        <button class="btn-primary w-full sm:w-auto" type="submit">{% if is_english %}Send new link{% else %}Enviar nuevo enlace{% endif %}</button>
       </form>
-      <p class="mt-5"><a class="link-primary font-semibold" href="{% url 'login' %}">Volver al login</a></p>
+      <p class="mt-5"><a class="link-primary font-semibold" href="{% url 'login' %}">{% if is_english %}Back to login{% else %}Volver al login{% endif %}</a></p>
     </div>
   </section>
 {% endblock %}

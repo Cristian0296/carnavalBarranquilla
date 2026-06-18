@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Carnaval de Barranquilla en Atlanta | Carnaval de Barranquilla ATL{% endblock %}
-{% block meta_description %}Carnaval de Barranquilla ATL organiza eventos culturales colombianos en Atlanta y Metro Atlanta con musica, folclor, tradicion, boletas QR y experiencias para la comunidad latina.{% endblock %}
+{% block title %}{% if is_english %}Carnival of Barranquilla in Atlanta | Carnaval de Barranquilla ATL{% else %}Carnaval de Barranquilla en Atlanta | Carnaval de Barranquilla ATL{% endif %}{% endblock %}
+{% block meta_description %}{% if is_english %}Carnaval de Barranquilla ATL organizes Colombian cultural events in Atlanta and Metro Atlanta with music, folklore, tradition, QR tickets, and experiences for the Latino community.{% else %}Carnaval de Barranquilla ATL organiza eventos culturales colombianos en Atlanta y Metro Atlanta con musica, folclor, tradicion, boletas QR y experiencias para la comunidad latina.{% endif %}{% endblock %}
 {% block content %}
   <section class="space-y-8">
     <section class="relative mx-auto max-w-5xl overflow-hidden rounded-[2rem] border border-white/15 bg-[linear-gradient(145deg,rgba(255,248,232,0.98)_0%,rgba(255,255,255,0.95)_48%,rgba(245,197,24,0.2)_100%)] p-6 shadow-glow sm:p-8 lg:p-10">
@@ -10,16 +10,16 @@
 
       <div class="relative">
         <span class="inline-flex rounded-full border border-[#FFB347] bg-[linear-gradient(135deg,#FF7A00_0%,#FFA033_100%)] px-4 py-2 text-sm font-bold uppercase tracking-[0.22em] text-white shadow-lg">
-          Nosotros
+          {% if is_english %}About{% else %}Nosotros{% endif %}
         </span>
         <h1 class="mt-5 text-3xl font-extrabold leading-tight !text-[#0D2A5C] sm:text-4xl lg:text-5xl">
-          Carnaval de Barranquilla en Atlanta
+          {% if is_english %}Carnival of Barranquilla in Atlanta{% else %}Carnaval de Barranquilla en Atlanta{% endif %}
         </h1>
         <p class="mt-5 max-w-3xl text-lg leading-8 text-slate-700 sm:text-xl">
-          Carnaval de Barranquilla ATL conecta a la comunidad colombiana y latina de Atlanta con la musica, el folclor, la danza, el color y la tradicion de una de las celebraciones culturales mas importantes de Colombia.
+          {% if is_english %}Carnaval de Barranquilla ATL connects the Colombian and Latino community in Atlanta with music, folklore, dance, color, and the tradition of one of Colombia's most important cultural celebrations.{% else %}Carnaval de Barranquilla ATL conecta a la comunidad colombiana y latina de Atlanta con la musica, el folclor, la danza, el color y la tradicion de una de las celebraciones culturales mas importantes de Colombia.{% endif %}
         </p>
         <div class="mt-7 flex flex-col gap-3 sm:flex-row">
-          <a class="btn-primary text-center" href="{% url 'event_list' %}">Ver eventos</a>
+          <a class="btn-primary text-center" href="{% url 'event_list' %}">{% if is_english %}View events{% else %}Ver eventos{% endif %}</a>
           <a class="inline-flex items-center justify-center gap-2 rounded-full border border-[#128C7E] bg-[#25D366] px-5 py-3 font-extrabold text-[#0B3D2E] shadow-lg transition hover:-translate-y-0.5 hover:bg-[#1EBE5D] hover:text-[#06351F] focus:outline-none focus:ring-4 focus:ring-[#25D366]/30" href="https://wa.me/16788868874?text=Hola%2C%20quiero%20informaci%C3%B3n%20sobre%20el%20Carnaval%20de%20Barranquilla%20ATL" target="_blank" rel="noopener" aria-label="Contactar por WhatsApp">
             <svg aria-hidden="true" class="h-5 w-5 shrink-0" viewBox="0 0 32 32" fill="currentColor">
               <path d="M16.02 3.2C9.02 3.2 3.34 8.78 3.34 15.66c0 2.19.59 4.34 1.7 6.23L3.2 28.8l7.1-1.81a12.86 12.86 0 0 0 5.72 1.35c7 0 12.68-5.58 12.68-12.45S23.02 3.2 16.02 3.2Zm0 22.95c-1.76 0-3.48-.46-4.99-1.34l-.36-.21-4.21 1.07 1.1-4.03-.24-.39a10.1 10.1 0 0 1-1.55-5.59c0-5.65 4.6-10.25 10.25-10.25s10.25 4.6 10.25 10.25-4.6 10.49-10.25 10.49Zm5.64-7.68c-.31-.16-1.83-.89-2.11-.99-.28-.1-.49-.15-.69.16-.2.3-.79.98-.96 1.18-.18.2-.36.23-.67.08-.31-.16-1.31-.47-2.5-1.49-.92-.81-1.55-1.81-1.73-2.11-.18-.31-.02-.47.14-.63.14-.14.31-.36.46-.53.15-.18.2-.31.31-.51.1-.2.05-.38-.03-.53-.08-.16-.69-1.63-.95-2.24-.25-.59-.5-.51-.69-.52h-.59c-.2 0-.53.08-.81.38-.28.31-1.06 1.02-1.06 2.49s1.09 2.89 1.24 3.09c.15.2 2.15 3.22 5.2 4.51.73.31 1.29.49 1.73.63.73.23 1.39.2 1.92.12.59-.09 1.83-.74 2.09-1.45.26-.72.26-1.33.18-1.45-.08-.13-.28-.2-.59-.36Z" />
@@ -32,27 +32,27 @@
 
     <section class="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
       <article class="rounded-[1.75rem] border border-[#1F5FBF]/15 bg-white p-6 shadow-soft sm:p-8">
-        <h2 class="text-2xl font-extrabold text-[#0D2A5C]">Eventos colombianos en Atlanta y Metro Atlanta</h2>
+        <h2 class="text-2xl font-extrabold text-[#0D2A5C]">{% if is_english %}Colombian events in Atlanta and Metro Atlanta{% else %}Eventos colombianos en Atlanta y Metro Atlanta{% endif %}</h2>
         <p class="mt-4 text-base leading-8 text-slate-700">
-          Somos una organizacion cultural dedicada a promover el Carnaval de Barranquilla en Atlanta, Georgia. Creamos experiencias para que familias, amigos y nuevas generaciones vivan de cerca la identidad barranquillera y colombiana en Estados Unidos.
+          {% if is_english %}We are a cultural organization dedicated to promoting the Carnival of Barranquilla in Atlanta, Georgia. We create experiences so families, friends, and new generations can stay connected to Barranquilla and Colombian identity in the United States.{% else %}Somos una organizacion cultural dedicada a promover el Carnaval de Barranquilla en Atlanta, Georgia. Creamos experiencias para que familias, amigos y nuevas generaciones vivan de cerca la identidad barranquillera y colombiana en Estados Unidos.{% endif %}
         </p>
         <p class="mt-4 text-base leading-8 text-slate-700">
-          Nuestro trabajo esta enfocado en Atlanta, Metro Atlanta y comunidades cercanas como Marietta, Duluth y Lawrenceville, donde la cultura colombiana y latina sigue creciendo.
+          {% if is_english %}Our work is focused on Atlanta, Metro Atlanta, and nearby communities such as Marietta, Duluth, and Lawrenceville, where the Colombian and Latino community continues to grow.{% else %}Nuestro trabajo esta enfocado en Atlanta, Metro Atlanta y comunidades cercanas como Marietta, Duluth y Lawrenceville, donde la cultura colombiana y latina sigue creciendo.{% endif %}
         </p>
         <p class="mt-4 text-base leading-8 text-slate-700">
-          Desde esta plataforma puedes conocer los proximos eventos, comprar boletas para eventos culturales, recibir codigos QR y acceder a la informacion oficial de cada experiencia.
+          {% if is_english %}From this platform you can discover upcoming events, buy tickets for cultural experiences, receive QR codes, and access the official information for each event.{% else %}Desde esta plataforma puedes conocer los proximos eventos, comprar boletas para eventos culturales, recibir codigos QR y acceder a la informacion oficial de cada experiencia.{% endif %}
         </p>
       </article>
 
       <article class="rounded-[1.75rem] border border-[#F5C518]/35 bg-[linear-gradient(180deg,rgba(255,248,232,0.96)_0%,rgba(255,255,255,0.96)_100%)] p-6 shadow-soft sm:p-8">
-        <h2 class="text-2xl font-extrabold text-[#0D2A5C]">Lo que celebramos</h2>
+        <h2 class="text-2xl font-extrabold text-[#0D2A5C]">{% if is_english %}What we celebrate{% else %}Lo que celebramos{% endif %}</h2>
         <ul class="mt-5 grid gap-3 text-sm font-semibold leading-6 text-slate-700 sm:grid-cols-2">
           <li class="rounded-2xl border border-[#F5C518]/35 bg-[#FFF8E8] px-4 py-4">Carnaval de Barranquilla ATL</li>
-          <li class="rounded-2xl border border-[#00AEEF]/25 bg-[#F3FBFF] px-4 py-4">Eventos colombianos en Atlanta</li>
-          <li class="rounded-2xl border border-[#FF7A00]/28 bg-[#FFF4EC] px-4 py-4">Musica, danza y folclor</li>
-          <li class="rounded-2xl border border-[#2ECC71]/25 bg-[#F2FCF6] px-4 py-4">Tradicion barranquillera</li>
-          <li class="rounded-2xl border border-[#E53935]/22 bg-[#FFF4F4] px-4 py-4">Comunidad latina en Georgia</li>
-          <li class="rounded-2xl border border-[#1F5FBF]/22 bg-[#F4F8FF] px-4 py-4">Boletas QR para eventos</li>
+          <li class="rounded-2xl border border-[#00AEEF]/25 bg-[#F3FBFF] px-4 py-4">{% if is_english %}Colombian events in Atlanta{% else %}Eventos colombianos en Atlanta{% endif %}</li>
+          <li class="rounded-2xl border border-[#FF7A00]/28 bg-[#FFF4EC] px-4 py-4">{% if is_english %}Music, dance, and folklore{% else %}Musica, danza y folclor{% endif %}</li>
+          <li class="rounded-2xl border border-[#2ECC71]/25 bg-[#F2FCF6] px-4 py-4">{% if is_english %}Barranquilla tradition{% else %}Tradicion barranquillera{% endif %}</li>
+          <li class="rounded-2xl border border-[#E53935]/22 bg-[#FFF4F4] px-4 py-4">{% if is_english %}Latino community in Georgia{% else %}Comunidad latina en Georgia{% endif %}</li>
+          <li class="rounded-2xl border border-[#1F5FBF]/22 bg-[#F4F8FF] px-4 py-4">{% if is_english %}QR tickets for events{% else %}Boletas QR para eventos{% endif %}</li>
         </ul>
       </article>
     </section>
@@ -60,16 +60,16 @@
     <section class="rounded-[1.75rem] border border-[#1F5FBF]/15 bg-white p-6 shadow-soft sm:p-8">
       <div class="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
         <div>
-          <h2 class="text-2xl font-extrabold text-[#0D2A5C]">Nuestra mision</h2>
+          <h2 class="text-2xl font-extrabold text-[#0D2A5C]">{% if is_english %}Our mission{% else %}Nuestra mision{% endif %}</h2>
           <p class="mt-4 text-base leading-8 text-slate-700">
-            Mantener viva la cultura barranquillera en Atlanta y compartirla con personas de todas las edades y nacionalidades. Cada evento busca acercar a la comunidad a nuestras raices con una experiencia alegre, organizada y segura.
+            {% if is_english %}To keep Barranquilla culture alive in Atlanta and share it with people of all ages and backgrounds. Each event is designed to connect the community with our roots through a joyful, organized, and safe experience.{% else %}Mantener viva la cultura barranquillera en Atlanta y compartirla con personas de todas las edades y nacionalidades. Cada evento busca acercar a la comunidad a nuestras raices con una experiencia alegre, organizada y segura.{% endif %}
           </p>
         </div>
 
         <div>
-          <h2 class="text-2xl font-extrabold text-[#0D2A5C]">Nuestra vision</h2>
+          <h2 class="text-2xl font-extrabold text-[#0D2A5C]">{% if is_english %}Our vision{% else %}Nuestra vision{% endif %}</h2>
           <p class="mt-4 text-base leading-8 text-slate-700">
-            Posicionar el Carnaval de Barranquilla ATL como una referencia cultural en Atlanta, reconocida por reunir musica, danza, arte, gastronomia, tradicion y tecnologia para facilitar el acceso a eventos mediante boletas digitales y codigos QR.
+            {% if is_english %}To position Carnaval de Barranquilla ATL as a cultural reference in Atlanta, known for bringing together music, dance, art, gastronomy, tradition, and technology through digital tickets and QR access.{% else %}Posicionar el Carnaval de Barranquilla ATL como una referencia cultural en Atlanta, reconocida por reunir musica, danza, arte, gastronomia, tradicion y tecnologia para facilitar el acceso a eventos mediante boletas digitales y codigos QR.{% endif %}
           </p>
         </div>
       </div>

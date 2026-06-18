@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Iniciar sesión | Boletas QR{% endblock %}
+{% block title %}{% if is_english %}Log In | Boletas QR{% else %}Iniciar sesion | Boletas QR{% endif %}{% endblock %}
 {% block content %}
   <style>
     .password-toggle-group {
@@ -56,30 +56,54 @@
   <section class="mx-auto max-w-xl">
     <section class="panel mx-auto w-full p-6 lg:p-8">
       <h1 class="text-2xl font-semibold text-brand-900 lg:text-3xl">
-        <span class="title-top">Iniciar</span>
-        <span class="title-bottom">sesión</span>
+        <span class="title-top">{% if is_english %}Log{% else %}Iniciar{% endif %}</span>
+        <span class="title-bottom">{% if is_english %}in{% else %}sesion{% endif %}</span>
       </h1>
-      <p class="mt-2 text-slate-600">Accede a tu cuenta para gestionar tus entradas QR, eventos y perfil.</p>
+      <p class="mt-2 text-slate-600">
+        {% if is_english %}
+          Access your account to manage your QR tickets, events, and profile.
+        {% else %}
+          Accede a tu cuenta para gestionar tus entradas QR, eventos y perfil.
+        {% endif %}
+      </p>
       <form class="mt-5 space-y-3" method="post">
         {% csrf_token %}
         {% if next %}
           <input type="hidden" name="next" value="{{ next }}">
         {% endif %}
         {{ form.as_p }}
-        <button class="btn-primary w-full sm:w-auto" type="submit">Iniciar sesión</button>
+        <button class="btn-primary w-full sm:w-auto" type="submit">{% if is_english %}Log in{% else %}Iniciar sesion{% endif %}</button>
       </form>
-      <p class="mt-4"><a class="link-primary font-semibold" href="{% url 'password_reset' %}">Olvidé mi contraseña</a></p>
-      <p class="mt-3"><a class="link-primary font-semibold" href="{% url 'resend_email_verification' %}">Reenviar correo de verificación</a></p>
+      <p class="mt-4">
+        <a class="link-primary font-semibold" href="{% url 'password_reset' %}">
+          {% if is_english %}I forgot my password{% else %}Olvide mi contrasena{% endif %}
+        </a>
+      </p>
+      <p class="mt-3">
+        <a class="link-primary font-semibold" href="{% url 'resend_email_verification' %}">
+          {% if is_english %}Resend verification email{% else %}Reenviar correo de verificacion{% endif %}
+        </a>
+      </p>
       {% if enable_google_auth %}
         <div class="mt-4">
-          <a class="btn-neutral w-full text-center !border-slate-300 !bg-white !text-slate-700 hover:!text-white" href="/accounts/google/login/?process=login">Continuar con Google</a>
+          <a class="btn-neutral w-full text-center !border-slate-300 !bg-white !text-slate-700 hover:!text-white" href="/accounts/google/login/?process=login">
+            {% if is_english %}Continue with Google{% else %}Continuar con Google{% endif %}
+          </a>
         </div>
       {% endif %}
-      <p class="mt-5"><a class="link-primary font-semibold" href="{% url 'signup' %}">Crear cuenta</a></p>
+      <p class="mt-5">
+        <a class="link-primary font-semibold" href="{% url 'signup' %}">
+          {% if is_english %}Create account{% else %}Crear cuenta{% endif %}
+        </a>
+      </p>
     </section>
   </section>
   <script>
     (() => {
+      const labels = {
+        show: "{% if is_english %}Show password{% else %}Mostrar contrasena{% endif %}",
+        hide: "{% if is_english %}Hide password{% else %}Ocultar contrasena{% endif %}",
+      };
       const passwordInput = document.querySelector('input[name="password"]');
       if (!passwordInput || passwordInput.dataset.toggleReady === "true") {
         return;
@@ -100,7 +124,7 @@
       const toggleButton = document.createElement("button");
       toggleButton.type = "button";
       toggleButton.className = "password-toggle-button";
-      toggleButton.setAttribute("aria-label", "Mostrar contraseña");
+      toggleButton.setAttribute("aria-label", labels.show);
       toggleButton.setAttribute("aria-pressed", "false");
       toggleButton.setAttribute("data-password-toggle", "true");
       toggleButton.innerHTML = `
@@ -125,10 +149,7 @@
         toggleButton.classList.toggle("is-visible", isHidden);
         openIcon.classList.toggle("hidden", isHidden);
         closedIcon.classList.toggle("hidden", !isHidden);
-        toggleButton.setAttribute(
-          "aria-label",
-          isHidden ? "Ocultar contraseña" : "Mostrar contraseña"
-        );
+        toggleButton.setAttribute("aria-label", isHidden ? labels.hide : labels.show);
         toggleButton.setAttribute("aria-pressed", isHidden ? "true" : "false");
       });
 

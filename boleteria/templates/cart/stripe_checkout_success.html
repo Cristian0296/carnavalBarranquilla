@@ -1,32 +1,32 @@
 {% extends "base.html" %}
-{% block title %}{% if order and order.status == 'PAID' %}Pago confirmado{% else %}Pago en proceso{% endif %} | Boletas QR{% endblock %}
+{% block title %}{% if order and order.status == 'PAID' %}{% if is_english %}Payment confirmed{% else %}Pago confirmado{% endif %}{% else %}{% if is_english %}Payment in progress{% else %}Pago en proceso{% endif %}{% endif %} | Boletas QR{% endblock %}
 {% block content %}
   <section class="panel p-6">
     <h1 class="text-[2rem] font-extrabold sm:text-3xl lg:text-4xl">
-      <span class="title-top">Pago</span>
-      <span class="title-bottom">{% if order and order.status == 'PAID' %}confirmado{% else %}en revision{% endif %}</span>
+      <span class="title-top">{% if is_english %}Payment{% else %}Pago{% endif %}</span>
+      <span class="title-bottom">{% if order and order.status == 'PAID' %}{% if is_english %}confirmed{% else %}confirmado{% endif %}{% else %}{% if is_english %}under review{% else %}en revision{% endif %}{% endif %}</span>
     </h1>
     <p class="mt-3 text-slate-700">
       {% if order and order.status == 'PAID' %}
-        Tu pago fue confirmado y ya generamos tus boletas QR y cualquier codigo de reclamacion asociado a esta compra.
+        {% if is_english %}Your payment was confirmed and we already generated your QR tickets and any pickup codes linked to this purchase.{% else %}Tu pago fue confirmado y ya generamos tus boletas QR y cualquier codigo de reclamacion asociado a esta compra.{% endif %}
       {% else %}
-        Stripe ya recibio tu pago. Esta pantalla todavia no confirma boletas; la confirmacion final llegara cuando el webhook marque la orden como pagada.
+        {% if is_english %}Stripe has already received your payment. This screen does not confirm tickets yet; final confirmation will arrive when the webhook marks the order as paid.{% else %}Stripe ya recibio tu pago. Esta pantalla todavia no confirma boletas; la confirmacion final llegara cuando el webhook marque la orden como pagada.{% endif %}
       {% endif %}
     </p>
     {% if order and order.status == 'PAID' %}
-      <p class="mt-2 text-sm text-slate-600">Te llevaremos a Mis compras y QR en <span id="success-redirect-countdown">5</span> segundos.</p>
+      <p class="mt-2 text-sm text-slate-600">{% if is_english %}We will take you to My Purchases and QR in <span id="success-redirect-countdown">5</span> seconds.{% else %}Te llevaremos a Mis compras y QR en <span id="success-redirect-countdown">5</span> segundos.{% endif %}</p>
     {% endif %}
     {% if order %}
-      <p class="mt-4"><strong>Orden:</strong> #{{ order.id }} ({{ order.get_status_display }})</p>
-      <p><strong>Evento:</strong> {{ order.event.title }}</p>
+      <p class="mt-4"><strong>{% if is_english %}Order:{% else %}Orden:{% endif %}</strong> #{{ order.id }} ({{ order.get_status_display }})</p>
+      <p><strong>{% if is_english %}Event:{% else %}Evento:{% endif %}</strong> {{ order.event.title }}</p>
       <p><strong>Total:</strong> USD {{ order.total_usd }}</p>
     {% endif %}
     <div class="mt-6 flex flex-wrap gap-3">
-      <a class="btn-primary" href="{% url 'my_tickets' %}">Ver mis entradas</a>
+      <a class="btn-primary" href="{% url 'my_tickets' %}">{% if is_english %}View my tickets{% else %}Ver mis entradas{% endif %}</a>
       {% if order and order_has_products %}
-        <a class="btn-neutral !border-[#FF7A00] !bg-[#FF7A00] !text-white hover:!border-[#E66F00] hover:!bg-[#E66F00] hover:!text-white" href="{% url 'my_tickets' %}?event_id={{ order.event_id }}">Ver productos y codigos</a>
+        <a class="btn-neutral !border-[#FF7A00] !bg-[#FF7A00] !text-white hover:!border-[#E66F00] hover:!bg-[#E66F00] hover:!text-white" href="{% url 'my_tickets' %}?event_id={{ order.event_id }}">{% if is_english %}View products and codes{% else %}Ver productos y codigos{% endif %}</a>
       {% endif %}
-      <a class="btn-neutral !border-[#1F5FBF]/20 !bg-white !text-[#0D2A5C]" href="{% url 'event_list' %}">Volver a eventos</a>
+      <a class="btn-neutral !border-[#1F5FBF]/20 !bg-white !text-[#0D2A5C]" href="{% url 'event_list' %}">{% if is_english %}Back to events{% else %}Volver a eventos{% endif %}</a>
     </div>
   </section>
   {% if order and order.status == 'PAID' %}

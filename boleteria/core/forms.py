@@ -4,6 +4,7 @@ import json
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+from django.utils.translation import get_language
 from django.utils import timezone
 
 from .models import Event, EventTicketType, MomentBlock, Product, ProductVariant, Profile, Review, SiteSettings
@@ -16,6 +17,10 @@ def _clean_digits_only(value, required_message, invalid_message):
     if not normalized.isdigit():
         raise forms.ValidationError(invalid_message)
     return normalized
+
+
+def _is_english_language():
+    return (get_language() or "").lower().startswith("en")
 
 
 class EventTicketTypesFormMixin:
@@ -638,13 +643,19 @@ class ProfileForm(forms.ModelForm):
 
 
 class ReviewForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if _is_english_language():
+            self.fields["comment"].label = "Comment"
+            self.fields["comment"].widget.attrs["placeholder"] = "Write your opinion about the event"
+
     class Meta:
         model = Review
         fields = ["comment"]
         labels = {"comment": "Comentario"}
         widgets = {
             "comment": forms.Textarea(
-                attrs={"rows": 4, "placeholder": "Escribe tu opinión sobre la obra"}
+                attrs={"rows": 4, "placeholder": "Escribe tu opinion sobre el evento"}
             ),
         }
 
@@ -655,7 +666,7 @@ class EmailRequiredUserCreationForm(UserCreationForm):
         label="Usuario",
         help_text="",
     )
-    email = forms.EmailField(required=True, label="Correo electrónico")
+    email = forms.EmailField(required=True, label="Correo electronico")
     display_name = forms.CharField(
         required=True,
         max_length=120,
@@ -664,17 +675,17 @@ class EmailRequiredUserCreationForm(UserCreationForm):
     contact_number = forms.CharField(
         required=True,
         max_length=32,
-        label="Número de contacto (celular o fijo)",
+        label="Numero de contacto (celular o fijo)",
         widget=forms.TextInput(attrs={"inputmode": "numeric", "pattern": "[0-9]+"}),
     )
     password1 = forms.CharField(
-        label="Contraseña",
+        label="Contrasena",
         strip=False,
-        help_text="Debe tener al menos 8 caracteres y no puede ser una contraseña común ni solo numérica.",
+        help_text="Debe tener al menos 8 caracteres y no puede ser una contrasena comun ni solo numerica.",
         widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
     )
     password2 = forms.CharField(
-        label="Confirmar contraseña",
+        label="Confirmar contrasena",
         strip=False,
         widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
     )
@@ -683,27 +694,54 @@ class EmailRequiredUserCreationForm(UserCreationForm):
         model = User
         fields = ("username", "email", "password1", "password2")
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if _is_english_language():
+            self.fields["username"].label = "Username"
+            self.fields["email"].label = "Email address"
+            self.fields["display_name"].label = "Display name"
+            self.fields["contact_number"].label = "Contact number (mobile or landline)"
+            self.fields["password1"].label = "Password"
+            self.fields["password1"].help_text = (
+                "It must be at least 8 characters long and cannot be a common or numeric-only password."
+            )
+            self.fields["password2"].label = "Confirm password"
+
     def clean_email(self):
         email = (self.cleaned_data.get("email") or "").strip().lower()
         if not email:
-            raise forms.ValidationError("El correo electrónico es obligatorio.")
+            raise forms.ValidationError(
+                "Email address is required." if _is_english_language() else "El correo electronico es obligatorio."
+            )
         if "@" not in email:
-            raise forms.ValidationError("El correo electrónico debe incluir '@'.")
+            raise forms.ValidationError(
+                "Email address must include '@'."
+                if _is_english_language()
+                else "El correo electronico debe incluir '@'."
+            )
         if User.objects.filter(email__iexact=email).exists():
-            raise forms.ValidationError("Este correo electrónico ya está registrado.")
+            raise forms.ValidationError(
+                "This email address is already registered."
+                if _is_english_language()
+                else "Este correo electronico ya esta registrado."
+            )
         return email
 
     def clean_contact_number(self):
         return _clean_digits_only(
             self.cleaned_data.get("contact_number"),
-            "El número de contacto es obligatorio.",
-            "El número de contacto solo puede contener dígitos.",
+            "Contact number is required." if _is_english_language() else "El numero de contacto es obligatorio.",
+            "Contact number can only contain digits."
+            if _is_english_language()
+            else "El numero de contacto solo puede contener digitos.",
         )
 
     def clean_display_name(self):
         display_name = (self.cleaned_data.get("display_name") or "").strip()
         if not display_name:
-            raise forms.ValidationError("El nombre para mostrar es obligatorio.")
+            raise forms.ValidationError(
+                "Display name is required." if _is_english_language() else "El nombre para mostrar es obligatorio."
+            )
         return display_name
 
     def save(self, commit=True):
@@ -719,7 +757,13 @@ class EmailRequiredUserCreationForm(UserCreationForm):
 
 
 class EmailOrUsernameAuthenticationForm(AuthenticationForm):
-    username = forms.CharField(label="Usuario o correo electrónico")
+    username = forms.CharField(label="Usuario o correo electronico")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if _is_english_language():
+            self.fields["username"].label = "Username or email address"
+            self.fields["password"].label = "Password"
 
     def clean(self):
         username = (self.cleaned_data.get("username") or "").strip()
@@ -732,7 +776,9 @@ class EmailOrUsernameAuthenticationForm(AuthenticationForm):
                 lookup_user = User.objects.filter(username__iexact=username).first()
             if lookup_user and not lookup_user.is_active:
                 raise forms.ValidationError(
-                    "Tu cuenta ha sido bloqueada. Comunícate con soporte.",
+                    "Your account has been blocked. Please contact support."
+                    if _is_english_language()
+                    else "Tu cuenta ha sido bloqueada. Comunicate con soporte.",
                     code="inactive",
                 )
             if lookup_user and lookup_user.is_active:
@@ -741,7 +787,9 @@ class EmailOrUsernameAuthenticationForm(AuthenticationForm):
                         if self.request is not None:
                             self.request.session["pending_verification_email"] = lookup_user.email
                         raise forms.ValidationError(
-                            "Tu cuenta aun no ha sido verificada. Revisa tu correo y confirma tu cuenta para poder ingresar.",
+                            "Your account has not been verified yet. Check your email and confirm your account before signing in."
+                            if _is_english_language()
+                            else "Tu cuenta aun no ha sido verificada. Revisa tu correo y confirma tu cuenta para poder ingresar.",
                             code="email_not_verified",
                         )
                 except Profile.DoesNotExist:
@@ -750,30 +798,47 @@ class EmailOrUsernameAuthenticationForm(AuthenticationForm):
 
 
 class EmailVerificationResendForm(forms.Form):
-    email = forms.EmailField(required=True, label="Correo electrónico")
+    email = forms.EmailField(required=True, label="Correo electronico")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if _is_english_language():
+            self.fields["email"].label = "Email address"
 
     def clean_email(self):
         return (self.cleaned_data.get("email") or "").strip().lower()
 
 
 class UserEmailUpdateForm(forms.Form):
-    email = forms.EmailField(required=True, label="Correo electrónico")
+    email = forms.EmailField(required=True, label="Correo electronico")
 
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user")
         super().__init__(*args, **kwargs)
         if not self.is_bound:
             self.fields["email"].initial = self.user.email
+        if _is_english_language():
+            self.fields["email"].label = "Email address"
 
     def clean_email(self):
         email = (self.cleaned_data.get("email") or "").strip().lower()
         if not email:
-            raise forms.ValidationError("El correo electrónico es obligatorio.")
+            raise forms.ValidationError(
+                "Email address is required." if _is_english_language() else "El correo electronico es obligatorio."
+            )
         if "@" not in email:
-            raise forms.ValidationError("El correo electrónico debe incluir '@'.")
+            raise forms.ValidationError(
+                "Email address must include '@'."
+                if _is_english_language()
+                else "El correo electronico debe incluir '@'."
+            )
         exists = User.objects.filter(email__iexact=email).exclude(pk=self.user.pk).exists()
         if exists:
-            raise forms.ValidationError("Este correo electrónico ya está registrado.")
+            raise forms.ValidationError(
+                "This email address is already registered."
+                if _is_english_language()
+                else "Este correo electronico ya esta registrado."
+            )
         return email
 
 

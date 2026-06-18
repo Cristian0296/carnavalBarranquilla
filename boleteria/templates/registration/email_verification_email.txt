@@ -1,4 +1,15 @@
-Hola {{ display_name }},
+{% load i18n %}{% get_current_language as LANGUAGE_CODE %}{% if LANGUAGE_CODE == 'en' %}Hello {{ display_name }},
+
+Thank you for creating your account at Carnaval de Barranquilla ATL.
+
+To activate your access, confirm your email from this link:
+{{ confirmation_url }}
+
+This link will remain available for 24 hours.
+
+If you did not create this account, you can ignore this email.
+
+Carnaval de Barranquilla ATL{% else %}Hola {{ display_name }},
 
 Gracias por crear tu cuenta en Carnaval de Barranquilla ATL.
 
@@ -9,4 +20,4 @@ Este enlace estara disponible durante 24 horas.
 
 Si no creaste esta cuenta, puedes ignorar este correo.
 
-Carnaval de Barranquilla ATL
+Carnaval de Barranquilla ATL{% endif %}
